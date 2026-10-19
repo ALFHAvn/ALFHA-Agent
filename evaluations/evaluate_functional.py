@@ -1,4 +1,4 @@
-"""Step 27 functional framework; execution and live benchmarking are fail-closed."""
+"""Functional framework with a fail-closed execution-backend interface."""
 import argparse
 import hashlib
 import importlib.util
@@ -11,10 +11,12 @@ try:
     from . import evaluate_agent as syntax
     from .benchmark_reliability import proposal_observations
     from .functional_validation import CASE_ROOT, assess_candidate, isolation_status, load_tasks, validate_source
+    from .execution_backend import DockerExecutionBackend, apply_execution
 except ImportError:
     import evaluate_agent as syntax
     from benchmark_reliability import proposal_observations
     from functional_validation import CASE_ROOT, assess_candidate, isolation_status, load_tasks, validate_source
+    from execution_backend import DockerExecutionBackend, apply_execution
 
 
 def task_by_id(task_id):
@@ -36,7 +38,7 @@ def empty_telemetry():
     }
 
 
-def one_functional_case(task_id, *, chat_fn):
+def one_functional_case(task_id, *, chat_fn, backend=None):
     """Exercise the controller with an explicitly injected offline test double.
 
     Live CLI use is blocked until an execution backend is implemented and verified.
@@ -135,6 +137,10 @@ def one_functional_case(task_id, *, chat_fn):
         candidate = candidate_bytes.decode('utf-8-sig')
 
     assessment = assess_candidate(original, candidate, task)
+    if backend is not None:
+        assessment = apply_execution(assessment, candidate, task, backend)
+        if telemetry['error'] and assessment['passed'] is not None:
+            assessment['passed'] = False
     verifications.append({'stage': 'final', **assessment['controller_verification']})
     trace = telemetry['trace']
     proposals = proposal_observations(telemetry['model_responses'], task['filename'], False)
@@ -149,7 +155,7 @@ def one_functional_case(task_id, *, chat_fn):
     })
     return {
         'task': task_id, 'filename': task['filename'], 'mode': 'injected_controller_test',
-        'isolation': isolation_status(), 'answer': answer,
+        'isolation': assessment.get('isolation', isolation_status()), 'answer': answer,
         'source_sha256_before': hashlib.sha256(original_bytes).hexdigest(),
         'source_sha256_after': hashlib.sha256(candidate_bytes).hexdigest(),
         'candidate_source': candidate, 'verification_results': verifications,
@@ -157,15 +163,18 @@ def one_functional_case(task_id, *, chat_fn):
     }
 
 
-def static_report():
+def static_report(backend=None):
     results = []
     for task in load_tasks():
         source = (CASE_ROOT / task['filename']).read_text(encoding='utf-8-sig')
+        assessment = assess_candidate(source, source, task)
+        if backend is not None:
+            assessment = apply_execution(assessment, source, task, backend)
         results.append({
             'task': task['id'], 'instruction': task['instruction'], 'filename': task['filename'],
             'source_sha256': syntax.sha256(CASE_ROOT / task['filename']),
             **empty_telemetry(), 'successful_edits': 0,
-            **assess_candidate(source, source, task),
+            **assessment,
         })
     return {
         'schema_version': 1, 'timestamp_utc': datetime.now(timezone.utc).isoformat(),
@@ -181,8 +190,17 @@ def static_report():
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--live', action='store_true', help='Request live benchmark (currently blocked)')
+    parser.add_argument('--verify-execution', action='store_true', help='Record backend security verification status; does not enable execution')
+    parser.add_argument('--image', help='Locally available python@sha256:<digest>; mutable image tags are rejected')
     args = parser.parse_args(argv)
-    report = static_report()
+    try:
+        backend = DockerExecutionBackend(image=args.image)
+    except ValueError as exc:
+        parser.error(str(exc))
+    report = static_report(backend=backend)
+    report['isolation'] = backend.verify()
+    if args.verify_execution:
+        report['security_verification_status'] = 'not_run_prerequisites_and_verified_transport_required'
     if args.live:
         report['live_benchmark_status'] = 'blocked_no_verified_execution_backend'
     syntax.RUNS.mkdir(parents=True, exist_ok=True)
@@ -191,7 +209,7 @@ def main(argv=None):
     output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
     print(f"Static validation: {report['summary']['syntax_valid']}/5 syntax valid; functional tests NOT RUN.")
     print(f'Report: {output}')
-    if args.live:
+    if args.live or args.verify_execution:
         print('Live Qwen3 benchmark BLOCKED: no verified execution isolation.')
         return 2
     return 0

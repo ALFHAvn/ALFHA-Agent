@@ -12,24 +12,12 @@ MAX_AST_NODES = 5_000
 
 
 def isolation_status():
-    """Fail closed. Executable discovery is not isolation verification.
-
-    No execution backend is implemented or accepted via configuration. A future
-    backend must demonstrate every listed control before this gate can change.
-    """
-    return {
-        'verified': False, 'backend': None, 'execution_enabled': False,
-        'reason': 'No verified execution backend; generated Python must not run.',
-        'detected_executables': {name: shutil.which(name) for name in ('docker', 'podman', 'wsl')},
-        'required_controls': {
-            'filesystem_isolation': True, 'no_host_secrets': True,
-            'network_denied': True, 'wall_timeout': True,
-            'memory_limit': True, 'cpu_limit': True,
-            'process_limit': True, 'bounded_output': True,
-            'process_tree_cleanup': True,
-        },
-        'enforced_execution_controls': None,
-    }
+    """Report the backend gate, never infer security from Docker discovery."""
+    try:
+        from .execution_backend import DockerExecutionBackend
+    except ImportError:
+        from execution_backend import DockerExecutionBackend
+    return DockerExecutionBackend().verify()
 
 
 def load_tasks(root=CASE_ROOT):

@@ -1,5 +1,10 @@
 # Step 27: functional evaluation framework
 
+Step 28 adds a disabled backend interface and evaluator integration. See
+[EXECUTION_SETUP.md](EXECUTION_SETUP.md) for actual prerequisite findings, manual
+installation instructions and the remaining runtime verification work. The
+non-executing behavior below remains the production default.
+
 This stage defines behavior tasks and an evaluation controller, but **does not
 execute fixture or candidate Python**. Functional correctness remains unmeasured
 until an execution backend is implemented and its isolation verified.

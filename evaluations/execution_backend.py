@@ -1,0 +1,235 @@
+"""Execution interface and fail-closed Docker policy scaffolding.
+
+No container transport is enabled in this revision: prerequisites and real
+security probes are unavailable. This module never executes candidate Python.
+Command availability, inspect fixtures, and saved reports cannot open the gate.
+"""
+from dataclasses import asdict, dataclass
+import re
+import shutil
+from typing import Protocol
+
+
+PROBES = (
+    'normal_calculation', 'wall_timeout', 'network_denied', 'host_files_denied',
+    'memory_limit', 'cpu_limit', 'process_limit', 'readonly_nonroot',
+    'output_limit', 'unsafe_configuration_rejected', 'cleanup',
+)
+IMAGE_PATTERN = r'python@sha256:[0-9a-f]{64}'
+
+
+@dataclass(frozen=True)
+class ContainerPolicy:
+    """Fixed proposed limits. These are not claimed as currently enforced."""
+    memory_bytes: int = 256 * 1024 * 1024
+    cpu_nanocpus: int = 1_000_000_000
+    cpu_seconds: int = 1
+    pids: int = 16
+    wall_seconds: int = 2
+    tmpfs_bytes: int = 1024 * 1024
+    output_bytes: int = 64 * 1024
+    user: str = '65534:65534'
+    network: str = 'none'
+    read_only: bool = True
+    privileged: bool = False
+    host_mounts: tuple = ()
+
+    def __post_init__(self):
+        required = {
+            'memory_bytes': 268435456, 'cpu_nanocpus': 1000000000,
+            'cpu_seconds': 1, 'pids': 16, 'wall_seconds': 2,
+            'tmpfs_bytes': 1048576, 'output_bytes': 65536,
+            'user': '65534:65534', 'network': 'none', 'read_only': True,
+            'privileged': False, 'host_mounts': (),
+        }
+        for key, value in required.items():
+            actual = getattr(self, key)
+            if type(actual) is not type(value) or actual != value:
+                raise ValueError(f'Unsupported isolation policy: {key}')
+
+    def plan(self, image):
+        if not isinstance(image, str) or not re.fullmatch(IMAGE_PATTERN, image):
+            raise ValueError('Use an explicitly selected python@sha256:<64 lowercase hex> image')
+        return {
+            'image': image, 'pull': 'never', **asdict(self),
+            'cap_drop': ['ALL'], 'cap_add': [], 'security_opt': ['no-new-privileges:true'],
+            'seccomp': 'runtime_default_required', 'pid_namespace': 'private',
+            'ipc_namespace': 'private', 'cgroup_namespace': 'private',
+            'devices': [], 'host_environment': [], 'volumes': [],
+            'tmpfs': {'/tmp': 'rw,noexec,nosuid,nodev,size=1048576,mode=1777'},
+            'input_transport': 'bounded stdin JSON; never bind mounts',
+            'result_transport': 'bounded stdout/stderr; host grades returned values',
+            'timeout_cleanup': 'force-remove only owned random-name container; verify absent',
+            'enforced': False,
+        }
+
+
+def validate_inspection(document, image_id):
+    """Validate prospective docker-inspect evidence; this does not verify runtime.
+
+    Deliberately reject absent/malformed evidence and any host mounts or expanded
+    privileges. A future executor must call this before starting every container.
+    Unit tests using synthetic documents are not actual security verification.
+    """
+    errors = []
+    if not isinstance(document, dict):
+        return ['Missing container inspection object']
+    host, config = document.get('HostConfig'), document.get('Config')
+    if not isinstance(host, dict) or not isinstance(config, dict):
+        return ['Missing HostConfig or Config']
+    expected = {
+        'NetworkMode': 'none', 'Privileged': False, 'ReadonlyRootfs': True,
+        'Memory': 268435456, 'MemorySwap': 268435456, 'NanoCpus': 1000000000,
+        'PidsLimit': 16, 'PidMode': '', 'IpcMode': 'private', 'CgroupnsMode': 'private',
+        'CapDrop': ['ALL'], 'SecurityOpt': ['no-new-privileges:true'],
+        'Tmpfs': {'/tmp': 'rw,noexec,nosuid,nodev,size=1048576,mode=1777'},
+    }
+    for key, value in expected.items():
+        actual = host.get(key)
+        if type(actual) is not type(value) or actual != value:
+            errors.append(f'Isolation setting mismatch: {key}')
+    for key in ('Binds', 'Mounts', 'CapAdd', 'Devices', 'DeviceRequests', 'VolumesFrom',
+                'PortBindings', 'ExtraHosts', 'Links', 'GroupAdd', 'Sysctls'):
+        if key not in host or host[key] not in (None, [], {}):
+            errors.append(f'Unexpected or missing isolation evidence: {key}')
+    if document.get('Mounts') != [] or config.get('Volumes') not in (None, {}):
+        errors.append('Host/image mounts are forbidden')
+    if config.get('User') != '65534:65534':
+        errors.append('Non-root numeric UID/GID required')
+    if not isinstance(image_id, str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', image_id) or document.get('Image') != image_id:
+        errors.append('Image identity mismatch')
+    limits = host.get('Ulimits')
+    if not isinstance(limits, list) or not any(
+            isinstance(limit, dict) and limit.get('Name') == 'cpu' and
+            type(limit.get('Soft')) is int and limit['Soft'] == 1 and
+            type(limit.get('Hard')) is int and limit['Hard'] == 1 for limit in limits):
+        errors.append('CPU-time ulimit required')
+    return errors
+
+
+def blocked_result(reason):
+    return {
+        'status': 'blocked', 'reason': reason, 'stdout': '', 'stderr': '',
+        'exit_status': None, 'timed_out': False, 'output_truncated': False,
+        'results': [], 'container_id': None,
+        'cleanup': {'status': 'not_created', 'verified_absent': True},
+    }
+
+
+class ExecutionBackend(Protocol):
+    def verify(self) -> dict: ...
+    def execute(self, source: str, task: dict) -> dict: ...
+
+
+class DockerExecutionBackend:
+    """Unavailable execution adapter: no host fallback, no attestation override.
+
+    Intended runtime: Docker Desktop Linux containers on WSL 2. A real transport,
+    bounded stream handling, timeout/removal lifecycle and controlled in-container
+    probe runner still require implementation and validation on that platform.
+    """
+    def __init__(self, image=None):
+        self.policy = ContainerPolicy()
+        self.image = image
+        if image is not None:
+            self.policy.plan(image)  # Reject mutable tags and command injection.
+
+    def verify(self):
+        tools = {name: shutil.which(name) for name in ('docker', 'podman', 'wsl')}
+        reason = ('Docker CLI unavailable.' if not tools['docker'] else
+                  'Docker discovered, but discovery is not isolation verification.')
+        reason += ' Container execution transport and real security probes are not verified; execution is disabled.'
+        return {
+            'backend': 'docker-linux', 'verified': False, 'execution_enabled': False,
+            'reason': reason, 'detected_executables': tools,
+            'image': self.image, 'proposed_policy': self.policy.plan(self.image) if self.image else None,
+            'required_controls': {
+                'filesystem_isolation': True, 'no_host_secrets': True,
+                'network_denied': True, 'wall_timeout': True, 'memory_limit': True,
+                'cpu_limit': True, 'process_limit': True, 'bounded_output': True,
+                'process_tree_cleanup': True,
+            },
+            'enforced_execution_controls': None,
+            'security_checks': {name: {'status': 'not_run', 'evidence': None} for name in PROBES},
+        }
+
+    def execute(self, source, task):
+        # This gate is unconditional; even installed Docker or a forged JSON
+        # verification report cannot enable unvalidated candidate execution.
+        return blocked_result(self.verify()['reason'])
+
+
+def verification_passed(report):
+    """Require complete, current probe evidence from a trusted in-process adapter.
+
+    This is a report-shape check, not a cryptographic attestation. The production
+    adapter never returns verified=True; saved reports are never read as permits.
+    """
+    if not isinstance(report, dict) or report.get('verified') is not True or report.get('execution_enabled') is not True:
+        return False
+    checks = report.get('security_checks')
+    return (isinstance(checks, dict) and set(checks) == set(PROBES) and
+            all(isinstance(check, dict) and check.get('status') == 'passed' and
+                bool(check.get('evidence')) for check in checks.values()))
+
+
+def exact_json_equal(actual, expected):
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(expected, list):
+        return len(actual) == len(expected) and all(exact_json_equal(a, b) for a, b in zip(actual, expected))
+    if isinstance(expected, dict):
+        return actual.keys() == expected.keys() and all(exact_json_equal(actual[k], expected[k]) for k in expected)
+    return actual == expected
+
+
+def apply_execution(assessment, source, task, backend):
+    """Integrate structured observations without executing source on this host."""
+    try:
+        verification = backend.verify()
+    except Exception as exc:
+        verification = {'verified': False, 'execution_enabled': False,
+                        'reason': f'Backend verification error: {type(exc).__name__}: {exc}'}
+    if not isinstance(verification, dict):
+        verification = {'verified': False, 'execution_enabled': False, 'reason': 'Invalid backend verification report'}
+    assessment['isolation'] = verification
+    if not verification_passed(verification):
+        execution = blocked_result(verification.get('reason', 'Missing security verification'))
+    elif not assessment['controller_verification']['static_policy_passed']:
+        execution = blocked_result('Candidate failed non-executing policy validation')
+    else:
+        try:
+            execution = backend.execute(source, task)
+        except Exception as exc:
+            execution = blocked_result(f'Backend error: {type(exc).__name__}: {exc}')
+    assessment['execution'] = execution
+    if not isinstance(execution, dict) or execution.get('status') == 'blocked':
+        assessment['functional_tests']['reason'] = execution.get('reason', 'Invalid backend result') if isinstance(execution, dict) else 'Invalid backend result'
+        return assessment
+    results = execution.get('results')
+    cleanup = execution.get('cleanup')
+    streams = [execution.get('stdout'), execution.get('stderr')]
+    bounded_streams = (all(isinstance(stream, str) for stream in streams) and
+                       sum(len(stream.encode('utf-8')) for stream in streams) <= ContainerPolicy().output_bytes)
+    if (execution.get('status') != 'completed' or type(execution.get('exit_status')) is not int or
+            execution['exit_status'] != 0 or execution.get('timed_out') is not False or
+            execution.get('output_truncated') is not False or not isinstance(cleanup, dict) or
+            cleanup.get('verified_absent') is not True or not bounded_streams or not isinstance(results, list) or
+            len(results) != len(task['tests'])):
+        assessment['functional_tests']['status'] = 'execution_error'
+        assessment['functional_tests']['reason'] = 'Incomplete execution, timeout, output limit, or cleanup failure'
+        return assessment
+    outcomes = []
+    for index, (observed, vector) in enumerate(zip(results, task['tests'])):
+        valid = isinstance(observed, dict)
+        passed = (valid and 'value' in observed and exact_json_equal(observed['value'], vector['expected']) and
+                  'args_after' in observed and exact_json_equal(observed['args_after'], vector['args']) and
+                  (task['id'] != 'unique_order' or observed.get('new_list') is True))
+        outcomes.append({'index': index, 'passed': bool(passed)})
+    passed = all(row['passed'] for row in outcomes)
+    assessment['functional_tests'].update(status='passed' if passed else 'failed',
+                                         passed=passed, executed=len(outcomes), results=outcomes, reason=None)
+    assessment['requested_change_confirmed'] = bool(assessment['target_function_changed'] and passed)
+    assessment['requested_change_status'] = 'confirmed' if assessment['requested_change_confirmed'] else 'not_demonstrated'
+    assessment['passed'] = bool(assessment['changed'] and assessment['requested_change_confirmed'] and assessment['syntax_valid'])
+    return assessment

@@ -93,3 +93,9 @@ JSON is intentionally untracked under evaluations/runs.
 See [FUNCTIONAL.md](FUNCTIONAL.md) for the five-task, 29-vector framework,
 non-executing validation command, isolation gate, report semantics and full test
 command. Existing syntax evaluations remain unchanged.
+
+## Step 28 execution interface
+
+See [EXECUTION_SETUP.md](EXECUTION_SETUP.md) for the fail-closed backend interface,
+Windows/WSL/Docker findings, manual installation instructions and required runtime
+security tests. No candidate execution or live functional benchmark is enabled.
