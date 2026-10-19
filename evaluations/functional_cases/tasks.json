@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "sum_even", "filename": "sum_even.py", "function": "sum_even", "parameters": ["numbers"],
+      "instruction": "Fix sum_even(numbers) to return the sum of only the even integers, including negative even integers. An empty list returns 0. Do not mutate the input.",
+      "tests": [
+        {"args": [[]], "expected": 0},
+        {"args": [[1, 2, 3, 4]], "expected": 6},
+        {"args": [[-4, -3, -2, 0, 5]], "expected": -6},
+        {"args": [[1, 3, 5]], "expected": 0},
+        {"args": [[2, 2, 8]], "expected": 12}
+      ]
+    },
+    {
+      "id": "clamp", "filename": "clamp.py", "function": "clamp", "parameters": ["value", "lower", "upper"],
+      "instruction": "Fix clamp(value, lower, upper) to return lower below the interval, upper above it, or value inside it. Inputs are integers with lower <= upper; boundaries are inclusive.",
+      "tests": [
+        {"args": [5, 0, 10], "expected": 5},
+        {"args": [-1, 0, 10], "expected": 0},
+        {"args": [11, 0, 10], "expected": 10},
+        {"args": [0, 0, 10], "expected": 0},
+        {"args": [10, 0, 10], "expected": 10},
+        {"args": [7, 3, 3], "expected": 3},
+        {"args": [-5, -10, -2], "expected": -5}
+      ]
+    },
+    {
+      "id": "palindrome", "filename": "palindrome.py", "function": "is_palindrome", "parameters": ["text"],
+      "instruction": "Fix is_palindrome(text) for ASCII strings. Ignore case and all non-alphanumeric characters, then test whether the remaining characters read the same forwards and backwards. Empty or punctuation-only strings return True.",
+      "tests": [
+        {"args": [""], "expected": true},
+        {"args": ["!!!"], "expected": true},
+        {"args": ["A man, a plan, a canal: Panama!"], "expected": true},
+        {"args": ["race a car"], "expected": false},
+        {"args": ["0P"], "expected": false},
+        {"args": ["12-21"], "expected": true}
+      ]
+    },
+    {
+      "id": "unique_order", "filename": "unique_order.py", "function": "unique_order", "parameters": ["numbers"],
+      "instruction": "Fix unique_order(numbers) to return each integer once, preserving the order of first appearance. Return a new list and do not mutate the input.",
+      "tests": [
+        {"args": [[]], "expected": []},
+        {"args": [[3, 1, 3, 2, 1]], "expected": [3, 1, 2]},
+        {"args": [[-1, 0, -1, 2, 0]], "expected": [-1, 0, 2]},
+        {"args": [[5, 5, 5]], "expected": [5]},
+        {"args": [[4, 2, 9]], "expected": [4, 2, 9]}
+      ]
+    },
+    {
+      "id": "count_words", "filename": "count_words.py", "function": "count_words", "parameters": ["text"],
+      "instruction": "Fix count_words(text) to return a dictionary mapping each case-sensitive whitespace-separated token to its occurrence count. Preserve punctuation in tokens. Empty or whitespace-only strings return an empty dictionary.",
+      "tests": [
+        {"args": [""], "expected": {}},
+        {"args": [" \t\n "], "expected": {}},
+        {"args": ["red blue red"], "expected": {"red": 2, "blue": 1}},
+        {"args": ["Hi hi Hi"], "expected": {"Hi": 2, "hi": 1}},
+        {"args": ["a\ta\nb"], "expected": {"a": 2, "b": 1}},
+        {"args": ["go! go go!"], "expected": {"go!": 2, "go": 1}}
+      ]
+    }
+  ]
+}

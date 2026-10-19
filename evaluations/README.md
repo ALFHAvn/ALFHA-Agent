@@ -87,3 +87,9 @@ argument proposal telemetry was recomputed from saved responses after completion
 this changed reporting classification only. Pre-run: 20 tests passed. Post-run:
 25 tests passed, including the original 20 and five reporting tests. The generated
 JSON is intentionally untracked under evaluations/runs.
+
+## Step 27 functional tasks
+
+See [FUNCTIONAL.md](FUNCTIONAL.md) for the five-task, 29-vector framework,
+non-executing validation command, isolation gate, report semantics and full test
+command. Existing syntax evaluations remain unchanged.
