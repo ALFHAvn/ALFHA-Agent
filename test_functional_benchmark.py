@@ -23,6 +23,22 @@ def generated(task_id, **kwargs):
 
 
 class FunctionalBenchmarkTests(unittest.TestCase):
+    def setUp(self):
+        # Test doubles only; production live entry points remain disabled.
+        enable = patch.object(benchmark, 'LIVE_EVALUATION_ENABLED', True)
+        enable.start()
+        self.addCleanup(enable.stop)
+
+    def test_unresolved_incident_disables_live_api_and_cli(self):
+        with patch.object(benchmark, 'LIVE_EVALUATION_ENABLED', False), \
+                patch('ollama.Client', side_effect=AssertionError('No model access')), \
+                patch.object(FunctionalHarness, 'prepare', side_effect=AssertionError('No live preparation')):
+            result, calls, _ = self.run_fake()
+            calls.assert_not_called()
+            self.assertEqual(result['status'], 'incomplete')
+            self.assertIn('Live evaluation disabled', result['error'])
+            self.assertEqual(benchmark.main(), 2)
+
     def run_fake(self, implementation=generated, backend=None):
         saved = []
         worker = FunctionalHarness(backend or FakeBackend())

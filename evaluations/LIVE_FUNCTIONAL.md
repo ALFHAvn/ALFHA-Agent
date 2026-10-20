@@ -1,5 +1,10 @@
 # Step 29: single-pass live functional benchmark
 
+**Step 29A status:** live evaluation is disabled pending a separate review of
+the unresolved runtime-verification failure. The API and CLI reject live runs
+before accessing Ollama. See [runtime diagnosis](RUNTIME_DIAGNOSIS.md). The
+description and results below document the historical Step 29 implementation/run.
+
 Run the explicit, gated benchmark from the project root:
 
     .venv\Scripts\python.exe -m evaluations.benchmark_functional

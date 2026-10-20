@@ -266,18 +266,22 @@ class FunctionalHarness:
             return {**base, 'status': 'policy_rejected', 'reason': checks['diagnostics']}
         verification = self.backend.verify()
         if self._profile is None or self._profile != profile_hash() or verification.get('verified') is not True:
-            return {**base, 'status': 'blocked', 'reason': 'Current isolation/profile verification required'}
+            return {**base, 'status': 'blocked', 'reason': 'Current isolation/profile verification required',
+                    'isolation': verification}
         try:
             request = make_request(task_id, source)
             program = worker_program(request)
             raw = self.backend.run_verified_worker(program)
             after = self.backend.verify()
             if after.get('verified') is not True or self._profile != profile_hash():
-                return {**base, 'status': 'execution_error', 'reason': 'Verification identity changed during execution', 'execution': raw}
+                return {**base, 'status': 'execution_error', 'reason': 'Verification identity changed during execution',
+                        'execution': raw, 'isolation': verification, 'isolation_after': after}
             grade = grade_execution(task, request, raw)
         except Exception as exc:
-            return {**base, 'status': 'execution_error', 'reason': f'{type(exc).__name__}: {exc}'}
+            return {**base, 'status': 'execution_error', 'reason': f'{type(exc).__name__}: {exc}',
+                    'isolation': getattr(exc, 'verification', verification),
+                    'failure': getattr(exc, 'failure', None)}
         return {**base, **grade, 'request_id': request['request_id'],
                 'source_sha256': hashlib.sha256(source.encode('utf-8')).hexdigest(),
                 'grading_profile_sha256': self._profile, 'execution': raw,
-                'isolation': verification}
+                'isolation': verification, 'isolation_after': after}

@@ -17,6 +17,32 @@ PROBES = (
 IMAGE_PATTERN = r'python@sha256:[0-9a-f]{64}'
 
 
+def identity_differences(expected, observed, path='identity'):
+    """Compare in-memory identities without normalizing away type/missing evidence."""
+    if type(expected) is dict and type(observed) is dict:
+        differences = []
+        for key in sorted(expected.keys() | observed.keys()):
+            field = path + '.' + key
+            if key not in expected or key not in observed:
+                differences.append({'field': field, 'expected_present': key in expected,
+                                    'observed_present': key in observed,
+                                    'expected': expected.get(key), 'observed': observed.get(key)})
+            else:
+                differences.extend(identity_differences(expected[key], observed[key], field))
+        return differences
+    if type(expected) is not type(observed) or expected != observed:
+        return [{'field': path, 'expected': expected, 'observed': observed,
+                 'expected_type': type(expected).__name__, 'observed_type': type(observed).__name__}]
+    return []
+
+
+class VerificationRejected(RuntimeError):
+    """Carry the original verification rejection across worker/harness boundaries."""
+    def __init__(self, report):
+        super().__init__('Current complete isolation verification is required')
+        self.verification = report
+
+
 @dataclass(frozen=True)
 class ContainerPolicy:
     """Fixed proposed limits. These are not claimed as currently enforced."""
@@ -140,18 +166,38 @@ class DockerExecutionBackend:
         if self._probe_report is not None:
             import copy
             report = copy.deepcopy(self._probe_report)
+            audit_start = len(getattr(self._transport, 'audit', []))
+            current = {'status': 'failed', 'classification': None, 'identity_differences': []}
             try:
                 identity = self._transport.preflight()
+                current['observed_identity'] = identity
                 from pathlib import Path
                 import hashlib
                 from . import verify_docker_isolation
                 current_probes = hashlib.sha256(Path(verify_docker_isolation.__file__).read_bytes()).hexdigest()
+                differences = identity_differences(report.get('identity'), identity)
+                current['identity_differences'] = differences
+                current['probe_source_sha256'] = current_probes
                 if identity != report.get('identity') or current_probes != report.get('probe_runner_sha256'):
                     report['verified'] = False
                     report['reason'] = 'Runtime/image/policy/transport/probe identity changed; reverify.'
+                    current['classification'] = 'identity_mismatch' if differences else 'probe_source_mismatch'
+                elif differences:
+                    # Equality alone considers True == 1; evidence types matter.
+                    report['verified'] = False
+                    report['reason'] = 'Runtime identity evidence type changed; reverify.'
+                    current['classification'] = 'identity_mismatch'
+                else:
+                    current['status'] = 'passed' if report.get('verified') is True else 'failed'
+                    current['classification'] = 'matched' if report.get('verified') is True else 'initial_probes_failed'
             except Exception as exc:
                 report['verified'] = False
                 report['reason'] = f'Current identity verification failed: {exc}'
+                current['failure'] = getattr(exc, 'failure', {'category': 'verification_exception',
+                                                            'message': f'{type(exc).__name__}: {exc}'})
+                current['classification'] = current['failure']['category']
+            current['commands'] = copy.deepcopy(getattr(self._transport, 'audit', [])[audit_start:])
+            report['current_verification'] = current
             report['execution_enabled'] = False
             return report
         tools = {name: shutil.which(name) for name in ('docker', 'podman', 'wsl')}
@@ -193,7 +239,7 @@ class DockerExecutionBackend:
         checks = report.get('security_checks', {})
         if (report.get('verified') is not True or set(checks) != set(PROBES) or
                 not all(c.get('status') == 'passed' and c.get('evidence') for c in checks.values())):
-            raise RuntimeError('Current complete isolation verification is required')
+            raise VerificationRejected(report)
         return self._transport.run_controlled(program)
 
 

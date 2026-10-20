@@ -18,7 +18,23 @@ LOCAL_ENDPOINTS = {'npipe:////./pipe/dockerDesktopLinuxEngine', 'unix:///var/run
 
 
 class IsolationError(RuntimeError):
-    pass
+    def __init__(self, message, *, category='unclassified', operation=None, evidence=None):
+        super().__init__(message)
+        self.failure = {'category': category, 'operation': operation,
+                        'message': message, 'evidence': evidence}
+
+
+def metadata_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('Duplicate Docker metadata field: ' + key)
+        result[key] = value
+    return result
+
+
+def invalid_constant(value):
+    raise ValueError('Non-finite Docker metadata: ' + value)
 
 
 def bounded_command(argv, *, timeout, input_bytes=b'', limit=65536):
@@ -106,6 +122,7 @@ def bounded_command(argv, *, timeout, input_bytes=b'', limit=65536):
         'stderr': text_streams[1],
         'returncode': proc.returncode, 'timed_out': timed_out,
         'output_truncated': overflow.is_set(), 'io_incomplete': incomplete or bool(io_errors),
+        'io_errors': io_errors, 'unfinished_io_threads': sum(t.is_alive() for t in readers + [writer]),
         'duration_seconds': time.monotonic() - started,
     }
 
@@ -132,40 +149,83 @@ class DockerTransport:
         self.poisoned = False
 
     def command(self, args, *, timeout=10, input_bytes=b''):
-        result = self.runner([self.cli, '--context', 'desktop-linux', *args],
-                             timeout=timeout, input_bytes=input_bytes, limit=self.policy.output_bytes)
+        try:
+            result = self.runner([self.cli, '--context', 'desktop-linux', *args],
+                                 timeout=timeout, input_bytes=input_bytes, limit=self.policy.output_bytes)
+        except Exception as exc:
+            evidence = {'arguments': list(args), 'exception': f'{type(exc).__name__}: {exc}'}
+            self.audit.append({'operation': args[0], **evidence})
+            raise IsolationError('Docker command transport raised an exception', category='transport_exception',
+                                 operation=list(args), evidence=evidence) from exc
         self.audit.append({'operation': args[0], 'returncode': result['returncode'],
-                           'timed_out': result['timed_out'], 'output_truncated': result['output_truncated']})
+                           'timed_out': result['timed_out'], 'output_truncated': result['output_truncated'],
+                           'arguments': list(args), 'result': dict(result)})
         return result
 
     def checked_json(self, args):
         result = self.command(args)
         if result['returncode'] != 0 or result['timed_out'] or result['output_truncated'] or result['io_incomplete']:
-            raise IsolationError(f'Docker metadata command failed: {args[0]}: {result["stderr"][:500]}')
+            category = ('metadata_timeout' if result['timed_out'] else
+                        'metadata_output_limit' if result['output_truncated'] else
+                        'metadata_incomplete_io' if result['io_incomplete'] else 'metadata_transport_error')
+            raise IsolationError(f'Docker metadata command failed: {args[0]}: {result["stderr"][:500]}',
+                                 category=category, operation=list(args), evidence=result)
         try:
-            return json.loads(result['stdout'])
+            return json.loads(result['stdout'], object_pairs_hook=metadata_object, parse_constant=invalid_constant)
         except (ValueError, TypeError) as exc:
-            raise IsolationError('Malformed Docker metadata') from exc
+            raise IsolationError('Malformed Docker metadata', category='metadata_malformed_json',
+                                 operation=list(args), evidence=result) from exc
+
+    def inspected_one(self, args):
+        document = self.checked_json(args)
+        if type(document) is not list or len(document) != 1 or type(document[0]) is not dict:
+            raise IsolationError('Expected exactly one inspection object', category='metadata_invalid_schema',
+                                 operation=list(args), evidence=document)
+        return document[0]
 
     def preflight(self):
         if self.poisoned:
-            raise IsolationError('Transport locked after unverified cleanup')
+            raise IsolationError('Transport locked after unverified cleanup', category='cleanup_unverified')
         contexts = self.checked_json(['context', 'inspect', 'desktop-linux'])
-        endpoint = contexts[0]['Endpoints']['docker']['Host']
+        try:
+            if type(contexts) is not list or len(contexts) != 1:
+                raise ValueError('Expected one context')
+            endpoint = contexts[0]['Endpoints']['docker']['Host']
+        except (KeyError, TypeError, IndexError, ValueError) as exc:
+            raise IsolationError('Incomplete context inspection evidence', category='metadata_invalid_schema',
+                                 operation=['context', 'inspect', 'desktop-linux'], evidence=contexts) from exc
         if endpoint not in LOCAL_ENDPOINTS:
-            raise IsolationError('Only the local Linux Docker endpoint is permitted')
+            raise IsolationError('Only the local Linux Docker endpoint is permitted', category='policy_mismatch',
+                                 operation=['context', 'inspect', 'desktop-linux'], evidence={'endpoint': endpoint})
         info = self.checked_json(['info', '--format', '{{json .}}'])
+        required = ('OSType', 'Architecture', 'CgroupVersion', 'MemoryLimit', 'SwapLimit',
+                    'CpuCfsQuota', 'PidsLimit', 'SecurityOptions', 'ID', 'ServerVersion', 'KernelVersion')
+        if (type(info) is not dict or any(k not in info for k in required) or
+                any(type(info[k]) is not str or not info[k] for k in ('ID', 'ServerVersion', 'KernelVersion')) or
+                type(info['SecurityOptions']) is not list):
+            raise IsolationError('Incomplete Docker engine evidence', category='metadata_invalid_schema',
+                                 operation=['info'], evidence=info)
         if (info.get('OSType') != 'linux' or info.get('Architecture') not in ('x86_64', 'amd64') or
                 str(info.get('CgroupVersion')) != '2' or
                 not all(info.get(k) is True for k in ('MemoryLimit', 'SwapLimit', 'CpuCfsQuota', 'PidsLimit')) or
                 'name=seccomp,profile=builtin' not in info.get('SecurityOptions', [])):
-            raise IsolationError('Linux/amd64, cgroup v2, resource limits and default seccomp are required')
-        image = self.checked_json(['image', 'inspect', self.image])[0]
+            raise IsolationError('Linux/amd64, cgroup v2, resource limits and default seccomp are required',
+                                 category='policy_mismatch', operation=['info'],
+                                 evidence={k: info[k] for k in required})
+        images = self.checked_json(['image', 'inspect', self.image])
+        if (type(images) is not list or len(images) != 1 or type(images[0]) is not dict or
+                any(k not in images[0] for k in ('Os', 'Architecture', 'RepoDigests', 'Config', 'Id')) or
+                type(images[0]['Config']) is not dict or type(images[0]['RepoDigests']) is not list or
+                type(images[0]['Id']) is not str):
+            raise IsolationError('Incomplete image inspection evidence', category='metadata_invalid_schema',
+                                 operation=['image', 'inspect', self.image], evidence=images)
+        image = images[0]
         if (image.get('Os') != 'linux' or image.get('Architecture') != 'amd64' or
                 self.image not in image.get('RepoDigests', []) or
                 image.get('Config', {}).get('Volumes') or
                 not re.fullmatch(r'sha256:[a-f0-9]{64}', image.get('Id', ''))):
-            raise IsolationError('Pinned Linux/amd64 image identity/configuration mismatch')
+            raise IsolationError('Pinned Linux/amd64 image identity/configuration mismatch', category='policy_mismatch',
+                                 operation=['image', 'inspect', self.image], evidence=image)
         return {'endpoint': endpoint, 'daemon_id': info['ID'], 'server_version': info['ServerVersion'],
                 'kernel': info['KernelVersion'], 'cgroup_version': info['CgroupVersion'],
                 'image': self.image, 'image_id': image['Id'], 'image_size_bytes': image.get('Size'),
@@ -218,9 +278,10 @@ class DockerTransport:
         try:
             created = self.command(self.create_arguments(name, identity['image_id']))
             if created['returncode'] != 0 or created['timed_out'] or created['output_truncated'] or created['io_incomplete']:
-                raise IsolationError('Container creation failed: ' + created['stderr'][:500])
+                raise IsolationError('Container creation failed: ' + created['stderr'][:500],
+                                     category='creation_transport_error', operation=['create'], evidence=created)
             result['container_id'] = created['stdout'].strip()
-            inspection = self.checked_json(['container', 'inspect', name])[0]
+            inspection = self.inspected_one(['container', 'inspect', name])
             errors = validate_inspection(inspection, identity['image_id'])
             # Command and image environment are also checked before START.
             config = inspection.get('Config', {})
@@ -228,7 +289,7 @@ class DockerTransport:
                     config.get('WorkingDir') != '/tmp' or config.get('OpenStdin') is not True or
                     config.get('Tty') is not False):
                 errors.append('Unexpected container entrypoint/command/stdio configuration')
-            image_config = self.checked_json(['image', 'inspect', identity['image_id']])[0]['Config']
+            image_config = self.inspected_one(['image', 'inspect', identity['image_id']])['Config']
             if config.get('Env') != image_config.get('Env'):
                 errors.append('Unexpected injected container environment')
             result['policy_verification'] = errors
@@ -236,7 +297,9 @@ class DockerTransport:
                 errors.append('Shared-memory scratch limit mismatch')
             result['inspection'] = inspection
             if errors:
-                raise IsolationError('Effective container policy mismatch: ' + '; '.join(errors))
+                raise IsolationError('Effective container policy mismatch: ' + '; '.join(errors),
+                                     category='policy_mismatch', operation=['container', 'inspect', name],
+                                     evidence={'errors': list(errors), 'inspection': inspection})
             attached = self.command(['start', '--attach', '--interactive', name],
                                     timeout=self.policy.wall_seconds, input_bytes=program.encode('utf-8'))
             result.update(stdout=attached['stdout'], stderr=attached['stderr'],
@@ -244,15 +307,23 @@ class DockerTransport:
                           duration_seconds=attached['duration_seconds'], io_incomplete=attached['io_incomplete'])
             if attached['timed_out'] or attached['output_truncated'] or attached['io_incomplete']:
                 result['kill_result'] = self.command(['kill', name])
-            state = self.checked_json(['container', 'inspect', name])[0]['State']
+            state = self.inspected_one(['container', 'inspect', name]).get('State')
+            if (type(state) is not dict or type(state.get('Running')) is not bool or
+                    type(state.get('ExitCode')) is not int or type(state.get('Status')) is not str):
+                raise IsolationError('Missing/inconsistent container state', category='metadata_invalid_schema',
+                                     operation=['container', 'inspect', name], evidence=state)
             result['container_state'] = state
             result['exit_status'] = state['ExitCode'] if not state['Running'] else None
             exited = state.get('Status') == 'exited' and not state['Running']
             consistent_exit = (attached['timed_out'] or attached['output_truncated'] or
                                attached['returncode'] == result['exit_status'])
             result['status'] = 'completed' if not attached['io_incomplete'] and exited and consistent_exit else 'transport_error'
+            if result['status'] != 'completed':
+                result['failure'] = {'category': 'execution_state_inconsistent', 'operation': ['start', name],
+                                     'evidence': {'attached': attached, 'state': state}}
         except Exception as exc:
             result['error'] = f'{type(exc).__name__}: {exc}'
+            result['failure'] = getattr(exc, 'failure', {'category': 'unclassified', 'message': str(exc)})
         finally:
             try:
                 result['cleanup'] = self.cleanup(name)
@@ -261,4 +332,5 @@ class DockerTransport:
                 result['cleanup'] = {'status': 'unverified', 'verified_absent': False, 'error': str(exc)}
             if not result['cleanup']['verified_absent']:
                 result['status'] = 'transport_error'
+                result.setdefault('failure', {'category': 'cleanup_unverified', 'evidence': result['cleanup']})
         return result

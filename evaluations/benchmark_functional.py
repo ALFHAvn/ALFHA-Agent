@@ -15,6 +15,10 @@ from .execution_backend import PROBES
 from .functional_harness import FunctionalHarness
 from .functional_validation import CASE_ROOT, load_tasks
 
+# Step 29A: the historical verification failure is unresolved. A separate
+# reviewed milestone is required before any live model evaluation resumes.
+LIVE_EVALUATION_ENABLED = False
+
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -96,6 +100,8 @@ def run_benchmark(*, chat_fn, harness, model_metadata, save=lambda report: None)
 
     checkpoint()
     try:
+        if not LIVE_EVALUATION_ENABLED:
+            raise RuntimeError('Live evaluation disabled pending review of the unresolved Step 29 verification failure')
         print('Running mandatory Docker isolation probes...', flush=True)
         report['security_evidence'] = harness.prepare()
         checkpoint()
@@ -150,6 +156,9 @@ def run_benchmark(*, chat_fn, harness, model_metadata, save=lambda report: None)
 
 
 def main():
+    if not LIVE_EVALUATION_ENABLED:
+        print('BLOCKED: live evaluation disabled pending a separate isolation-verification review.', flush=True)
+        return 2
     import ollama
     # Do not inherit an OLLAMA_HOST pointing at a remote service.
     client = ollama.Client(host='http://127.0.0.1:11434')
