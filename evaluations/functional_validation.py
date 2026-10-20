@@ -102,6 +102,7 @@ def validate_source(source, task):
     if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
         body = body[1:]
     function = body[0] if len(body) == 1 and isinstance(body[0], ast.FunctionDef) else None
+    primary = body[0] if body and isinstance(body[0], ast.FunctionDef) else None
     if function is None:
         result['diagnostics'].append('Only the required function and optional module docstring are allowed')
     else:
@@ -119,8 +120,10 @@ def validate_source(source, task):
         kind = type(node).__name__
         if kind not in ALLOWED_NODES:
             result['diagnostics'].append(f'Unsupported AST node: {kind}')
-        if isinstance(node, ast.FunctionDef) and node is not function:
+        if isinstance(node, ast.FunctionDef) and node is not primary:
             result['diagnostics'].append('Nested/extra functions are unsupported')
+        if isinstance(node, ast.Return) and node in body:
+            result['diagnostics'].append('Top-level return is forbidden; indent it inside the required function')
         if isinstance(node, ast.Name) and node.id.startswith('__'):
             result['diagnostics'].append('Dunder names are forbidden')
         if isinstance(node, ast.Attribute) and node.attr not in PURE_METHODS:
@@ -129,9 +132,22 @@ def validate_source(source, task):
             if not ((isinstance(node.func, ast.Name) and node.func.id in PURE_CALLS) or
                     (isinstance(node.func, ast.Attribute) and node.func.attr in PURE_METHODS)):
                 result['diagnostics'].append('Unsupported call target')
+                if isinstance(node.func, ast.Name):
+                    result['diagnostics'].append('Unsupported call: ' + node.func.id[:80])
     result['diagnostics'] = sorted(set(result['diagnostics']))
     result['static_policy_passed'] = result['contract_valid'] and not result['diagnostics']
     return result
+
+
+def verification_stages(checks):
+    return {
+        'ast_parsing': {'status': 'passed' if checks['syntax_valid'] else 'failed', 'passed': checks['syntax_valid']},
+        'compilation': {'status': 'not_run', 'passed': None, 'reason': 'Requires verified Docker compilation; never compiled on host'},
+        'policy': {'status': 'accepted' if checks['static_policy_passed'] else 'rejected',
+                   'passed': checks['static_policy_passed']},
+        'docker_execution': {'status': 'not_run', 'passed': None, 'candidate_invocation_attempted': False},
+        'functional_tests': {'status': 'not_run', 'passed': None},
+    }
 
 
 def function_fingerprint(source, name):
@@ -154,6 +170,7 @@ def assess_candidate(original, candidate, task):
         'controller_verification': checks,
         'verified_by_controller': checks['syntax_valid'],
         'syntax_valid': checks['syntax_valid'],
+        'verification_stages': verification_stages(checks),
         'functional_tests': {
             'status': 'not_run', 'passed': None, 'executed': 0,
             'planned': len(task['tests']),

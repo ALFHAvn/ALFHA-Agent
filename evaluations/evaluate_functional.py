@@ -12,11 +12,13 @@ try:
     from .benchmark_reliability import proposal_observations
     from .functional_validation import CASE_ROOT, assess_candidate, isolation_status, load_tasks, validate_source
     from .execution_backend import DockerExecutionBackend, apply_execution
+    from .tool_feedback import argument_feedback, edit_feedback, validation_feedback
 except ImportError:
     import evaluate_agent as syntax
     from benchmark_reliability import proposal_observations
     from functional_validation import CASE_ROOT, assess_candidate, isolation_status, load_tasks, validate_source
     from execution_backend import DockerExecutionBackend, apply_execution
+    from tool_feedback import argument_feedback, edit_feedback, validation_feedback
 
 
 def task_by_id(task_id):
@@ -52,6 +54,7 @@ def one_functional_case(task_id, *, chat_fn, backend=None):
     sent_retry_indexes = set()
     verifications = []
     answer = ''
+    unsuccessful_edits = 0
     with tempfile.TemporaryDirectory(prefix='alfha-functional-') as directory:
         workspace = Path(directory).resolve()
         target = workspace / task['filename']
@@ -77,17 +80,32 @@ def one_functional_case(task_id, *, chat_fn, backend=None):
         ]
 
         def dispatch(name, args, origin):
+            nonlocal unsuccessful_edits
             # Functional tasks intentionally authorize edits to syntax-valid starters.
             # All other Step 25 argument and filename restrictions are retained.
             result = syntax.validate_call(name, args, task['filename'], False)
+            raw_result = result
+            if result is not None:
+                result = argument_feedback(name, args, result)
             if result is None:
                 result = agent.execute_tool(name, args)
-            telemetry['trace'].append({'tool': name, 'arguments': args, 'result': result, 'origin': origin})
+                raw_result = result
             if name == 'check_python_syntax':
                 telemetry['verified_by_agent'] = result == f"Syntax OK: {task['filename']}"
+                if result.startswith('Syntax OK:') or result.startswith('Syntax ERROR'):
+                    checks = validate_source(target.read_text(encoding='utf-8-sig'), task)
+                    result += validation_feedback(checks)
             if name == 'edit_workspace_file' and result.startswith('Successfully'):
+                unsuccessful_edits = 0
                 telemetry['verified_by_agent'] = False
-                verifications.append({'stage': 'after_edit', **validate_source(target.read_text(encoding='utf-8-sig'), task)})
+                checks = validate_source(target.read_text(encoding='utf-8-sig'), task)
+                verifications.append({'stage': 'after_edit', **checks})
+                result += validation_feedback(checks)
+            elif name == 'edit_workspace_file' and result.startswith('Error:'):
+                unsuccessful_edits += 1
+                result = edit_feedback(result, args, unsuccessful_edits)
+            telemetry['trace'].append({'tool': name, 'arguments': args, 'result': result,
+                                       'raw_result': raw_result, 'origin': origin})
             return result
 
         try:
@@ -181,6 +199,8 @@ def grade_candidate_offline(task_id, source, harness):
                       requested_change_confirmed=bool(confirmed),
                       requested_change_status='confirmed' if confirmed else 'not_demonstrated',
                       passed=bool(confirmed and assessment['syntax_valid']))
+    if 'verification_stages' in grade:
+        assessment['verification_stages'] = grade['verification_stages']
     return assessment
 
 

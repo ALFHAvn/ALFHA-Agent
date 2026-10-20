@@ -11,6 +11,7 @@ from .docker_transport import PINNED_IMAGE
 from .execution_backend import DockerExecutionBackend, PROBES, exact_json_equal
 
 WORKER = Path(__file__).with_name('functional_worker.py')
+COMPILER = Path(__file__).with_name('compilation_worker.py')
 
 
 class ProtocolError(ValueError):
@@ -30,7 +31,7 @@ def task_by_id(task_id):
 
 def profile_hash():
     digest = hashlib.sha256()
-    for path in [Path(__file__), WORKER, Path(policy.__file__),
+    for path in [Path(__file__), WORKER, COMPILER, Path(policy.__file__),
                  *sorted(policy.CASE_ROOT.glob('*'))]:
         if path.is_file():
             digest.update(path.name.encode())
@@ -181,6 +182,7 @@ def grade_execution(task, request, raw):
         'planned': len(task['tests']), 'passed_count': 0, 'score': None,
         'results': [{'index': i, 'status': 'not_run', 'passed': False} for i in range(len(task['tests']))],
         'reason': None,
+        'compilation': {'status': 'not_observed', 'passed': None},
     }
     if (not isinstance(raw, dict) or type(raw.get('cleanup')) is not dict or
             raw['cleanup'].get('verified_absent') is not True):
@@ -207,8 +209,14 @@ def grade_execution(task, request, raw):
         return result
     if observations['job_error']:
         result['reason'] = observations['job_error']
+        result['compilation'] = {'status': 'failed', 'passed': False, 'error': observations['job_error'],
+                                 'evidence': 'trusted Docker worker compilation job_error'}
+        result['failure_kind'] = 'compilation_error'
         return result
     result['attempted'] = observations['started']
+    if observations['started']:
+        result['compilation'] = {'status': 'passed', 'passed': True,
+                                 'evidence': 'trusted Docker worker reached vector_start after compilation'}
     for row in observations['rows']:
         index = row['index']
         vector = task['tests'][index]
@@ -255,10 +263,65 @@ class FunctionalHarness:
         self._profile = profile_hash() if ready else None
         return report
 
+    def compile_only(self, task_id, source):
+        """Explicit trusted diagnostic API: compile in Docker, never invoke source.
+
+        Policy-rejected text may be compiled for diagnostics, but this API has no
+        path to candidate invocation or vectors and is never exposed as a model tool.
+        """
+        task = task_by_id(task_id)
+        checks = policy.validate_source(source, task)
+        base = {'task': task_id, 'status': 'blocked', 'model_invoked': False,
+                'live_evaluation_enabled': False, 'candidate_executed': False,
+                'verification_stages': policy.verification_stages(checks)}
+        if type(source) is not str or len(source.encode('utf-8')) > 100000:
+            return {**base, 'reason': 'Compilation input exceeds text limits'}
+        verification = self.backend.verify()
+        base['isolation'] = verification
+        if self._profile is None or self._profile != profile_hash() or verification.get('verified') is not True:
+            return {**base, 'reason': 'Current isolation/profile verification required'}
+        request = {'version': 1, 'request_id': uuid.uuid4().hex, 'task_id': task_id, 'source': source}
+        program = (COMPILER.read_text(encoding='utf-8') + '\ncompilation_main(' +
+                   repr(json.dumps(request, ensure_ascii=True)) + ')\n')
+        try:
+            if len(program.encode('utf-8')) > 100000:
+                raise ValueError('Compilation program exceeds transport limit')
+            raw = self.backend.run_verified_worker(program)
+            base['execution'] = raw
+            after = self.backend.verify()
+            base['isolation_after'] = after
+            if after.get('verified') is not True or self._profile != profile_hash():
+                raise ProtocolError('Verification changed during compilation')
+            if (raw.get('status') != 'completed' or type(raw.get('exit_status')) is not int or raw['exit_status'] != 0 or
+                    raw.get('timed_out') is not False or raw.get('output_truncated') is not False or
+                    raw.get('io_incomplete') is not False or raw.get('stderr') != '' or
+                    raw.get('cleanup', {}).get('verified_absent') is not True or
+                    type(raw.get('stdout')) is not str or len(raw['stdout'].encode()) > 65536):
+                raise ProtocolError('Compilation transport/cleanup evidence incomplete')
+            frame = json.loads(raw['stdout'], object_pairs_hook=_unique,
+                               parse_constant=lambda value: (_ for _ in ()).throw(ProtocolError('Non-finite result')))
+            if (type(frame) is not dict or set(frame) != {'kind', 'version', 'request_id', 'task_id', 'status', 'error'} or
+                    frame['kind'] != 'compilation_result' or type(frame['version']) is not int or frame['version'] != 1 or
+                    frame['request_id'] != request['request_id'] or frame['task_id'] != task_id or
+                    frame['status'] not in ('passed', 'failed') or
+                    (frame['status'] == 'passed' and frame['error'] is not None) or
+                    (frame['status'] == 'failed' and (type(frame['error']) is not str or len(frame['error']) > 1024))):
+                raise ProtocolError('Invalid compilation result schema')
+            base['verification_stages']['compilation'] = {'status': frame['status'],
+                'passed': frame['status'] == 'passed', 'error': frame['error'], 'evidence': 'Docker compile-only worker'}
+            base['verification_stages']['docker_execution'] = {'status': 'completed', 'passed': True, 'candidate_invocation_attempted': False}
+            return {**base, 'status': 'completed'}
+        except Exception as exc:
+            base['verification_stages']['compilation'] = {'status': 'unknown', 'passed': None}
+            base['verification_stages']['docker_execution'] = {'status': 'failed', 'passed': False, 'candidate_invocation_attempted': False}
+            return {**base, 'status': 'execution_error', 'reason': f'{type(exc).__name__}: {exc}',
+                    'isolation': getattr(exc, 'verification', verification), 'failure': getattr(exc, 'failure', None)}
+
     def run(self, task_id, source):
         task = task_by_id(task_id)
         checks = policy.validate_source(source, task)
         base = {'task': task_id, 'model_invoked': False, 'live_evaluation_enabled': False,
+                'verification_stages': policy.verification_stages(checks),
                 'static_validation': checks, 'planned': len(task['tests']), 'executed': 0,
                 'passed_count': 0, 'passed': False, 'score': None,
                 'results': [{'index': i, 'status': 'not_run', 'passed': False} for i in range(len(task['tests']))]}
@@ -268,16 +331,38 @@ class FunctionalHarness:
         if self._profile is None or self._profile != profile_hash() or verification.get('verified') is not True:
             return {**base, 'status': 'blocked', 'reason': 'Current isolation/profile verification required',
                     'isolation': verification}
+        raw = None
         try:
             request = make_request(task_id, source)
             program = worker_program(request)
             raw = self.backend.run_verified_worker(program)
+            base['verification_stages']['compilation'] = {'status': 'unknown', 'passed': None}
+            base['verification_stages']['functional_tests'] = {'status': 'not_observed', 'passed': None}
+            base['verification_stages']['docker_execution'] = {'status': 'unverified', 'passed': None,
+                                                               'candidate_invocation_attempted': None}
             after = self.backend.verify()
             if after.get('verified') is not True or self._profile != profile_hash():
+                base['verification_stages']['docker_execution'].update(status='verification_failed', passed=False)
                 return {**base, 'status': 'execution_error', 'reason': 'Verification identity changed during execution',
                         'execution': raw, 'isolation': verification, 'isolation_after': after}
             grade = grade_execution(task, request, raw)
+            base['verification_stages']['compilation'] = grade['compilation']
+            base['verification_stages']['docker_execution'] = {
+                'status': 'completed' if raw.get('status') == 'completed' else 'failed',
+                'passed': bool(raw.get('status') == 'completed' and type(raw.get('exit_status')) is int and
+                               raw['exit_status'] == 0 and raw.get('cleanup', {}).get('verified_absent') is True and
+                               raw.get('timed_out') is False and raw.get('output_truncated') is False and
+                               raw.get('io_incomplete') is False),
+                'candidate_invocation_attempted': True if grade.get('attempted', 0) else
+                                                False if grade['compilation']['status'] == 'failed' else None}
+            base['verification_stages']['functional_tests'] = {
+                'status': grade['status'] if grade.get('attempted', 0) else
+                          'not_run' if grade['compilation']['status'] == 'failed' else 'not_observed',
+                'passed': grade['passed'] if grade.get('attempted', 0) else None}
         except Exception as exc:
+            if raw is not None:
+                base['execution'] = raw
+                base['verification_stages']['docker_execution'].update(status='failed', passed=False)
             return {**base, 'status': 'execution_error', 'reason': f'{type(exc).__name__}: {exc}',
                     'isolation': getattr(exc, 'verification', verification),
                     'failure': getattr(exc, 'failure', None)}

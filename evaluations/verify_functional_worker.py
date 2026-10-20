@@ -53,6 +53,25 @@ def main():
         print(f'Report: {output}')
         return 2
 
+    compilation_cases = [
+        ('compile_only_valid', cases.REFERENCE_SOURCES['sum_even'], 'passed', True, True),
+        ('compile_only_top_return', 'def sum_even(numbers):\n    total = 0\nreturn total\n', 'failed', True, False),
+        ('compile_only_break', 'def sum_even(numbers):\n    break\n', 'failed', True, True),
+        ('compile_only_parse_error', 'def sum_even(numbers):\n    return (\n', 'failed', False, False),
+        ('compile_only_filter', 'def sum_even(numbers):\n    return filter(None, numbers)\n', 'passed', True, False),
+        ('compile_only_top_raise_not_invoked', 'raise RuntimeError("MUST_NOT_EXECUTE")\ndef sum_even(numbers):\n    return 0\n', 'passed', True, False),
+    ]
+    for name, source, compilation, parsed, accepted in compilation_cases:
+        print(f'Worker integration: {name}', flush=True)
+        result = worker.compile_only('sum_even', source)
+        stages = result['verification_stages']
+        good = (result['status'] == 'completed' and stages['compilation']['status'] == compilation and
+                stages['ast_parsing']['passed'] is parsed and stages['policy']['passed'] is accepted and
+                result['candidate_executed'] is False and stages['functional_tests']['status'] == 'not_run' and
+                result.get('execution', {}).get('cleanup', {}).get('verified_absent') is True)
+        report['checks'].append({'name': name, 'passed': bool(good), 'diagnostic': result})
+        save()
+
     def candidate_check(name, task_id, source, expected_status, expected_passed=None):
         print(f'Worker integration: {name}', flush=True)
         assessment = grade_candidate_offline(task_id, source, worker)

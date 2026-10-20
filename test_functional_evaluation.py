@@ -136,7 +136,8 @@ class FunctionalEvaluationTests(unittest.TestCase):
         result = self.run_case([response(calls=[(tool, malformed)])])
         self.assertFalse(result['changed'])
         self.assertEqual(result['successful_edits'], 0)
-        self.assertEqual(result['trace'][0]['result'], 'Error: Text not found. File unchanged.')
+        self.assertEqual(result['trace'][0]['raw_result'], 'Error: Text not found. File unchanged.')
+        self.assertIn('Literal backslash+n', result['trace'][0]['result'])
 
     def test_palindrome_recorded_candidate_still_rejected_despite_ast_parse(self):
         source = ("def is_palindrome(text):\n"

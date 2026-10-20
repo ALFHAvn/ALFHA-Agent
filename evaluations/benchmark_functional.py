@@ -104,7 +104,8 @@ def protected_hashes():
              root / 'evaluations/verify_docker_isolation.py']
     paths += [root / 'evaluations' / name for name in (
         'evaluate_functional.py', 'functional_validation.py', 'functional_harness.py',
-        'functional_worker.py', 'execution_backend.py', 'docker_transport.py')]
+        'functional_worker.py', 'execution_backend.py', 'docker_transport.py',
+        'compilation_worker.py', 'tool_feedback.py')]
     paths += sorted(p for p in CASE_ROOT.rglob('*') if p.is_file())
     return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
@@ -206,7 +207,9 @@ def run_benchmark(*, chat_fn, harness, model_metadata, save=lambda report: None,
             # Uses the existing protocol unchanged. This API itself never calls a
             # model; its nested model_invoked=False describes the grader only.
             graded = controller.grade_candidate_offline(task['id'], row['candidate_source'], harness)
-            for key in ('worker', 'functional_tests', 'requested_change_confirmed', 'requested_change_status'):
+            for key in ('worker', 'functional_tests', 'requested_change_confirmed', 'requested_change_status', 'verification_stages'):
+                if key not in graded:
+                    continue
                 row[key] = graded[key]
             row['passed'] = graded['worker']['passed'] is True
             row.update(status='completed', duration_seconds=time.monotonic() - started, completed_utc=now())
