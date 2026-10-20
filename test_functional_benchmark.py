@@ -25,26 +25,28 @@ def generated(task_id, **kwargs):
 class FunctionalBenchmarkTests(unittest.TestCase):
     def setUp(self):
         # Test doubles only; production live entry points remain disabled.
-        enable = patch.object(benchmark, 'LIVE_EVALUATION_ENABLED', True)
-        enable.start()
-        self.addCleanup(enable.stop)
+        for mock in (patch.object(benchmark, 'DockerExecutionBackend', FakeBackend),
+                     patch.object(FakeBackend, 'image', benchmark.PINNED_IMAGE, create=True)):
+            mock.start()
+            self.addCleanup(mock.stop)
 
     def test_unresolved_incident_disables_live_api_and_cli(self):
         with patch.object(benchmark, 'LIVE_EVALUATION_ENABLED', False), \
                 patch('ollama.Client', side_effect=AssertionError('No model access')), \
                 patch.object(FunctionalHarness, 'prepare', side_effect=AssertionError('No live preparation')):
-            result, calls, _ = self.run_fake()
+            result, calls, _ = self.run_fake(authorization=None)
             calls.assert_not_called()
             self.assertEqual(result['status'], 'incomplete')
             self.assertIn('Live evaluation disabled', result['error'])
-            self.assertEqual(benchmark.main(), 2)
+            self.assertEqual(benchmark.main([]), 2)
 
-    def run_fake(self, implementation=generated, backend=None):
+    def run_fake(self, implementation=generated, backend=None, authorization='fresh'):
         saved = []
         worker = FunctionalHarness(backend or FakeBackend())
         with patch.object(controller, 'one_functional_case', side_effect=implementation) as calls:
             result = benchmark.run_benchmark(chat_fn=object(), harness=worker,
                                              model_metadata={'test_double': True},
+                                             authorization=benchmark.OneRunAuthorization() if authorization == 'fresh' else authorization,
                                              save=lambda r: saved.append(copy.deepcopy(r)))
         return result, calls, saved
 
@@ -60,6 +62,83 @@ class FunctionalBenchmarkTests(unittest.TestCase):
         self.assertTrue(result['protected_files_unchanged'])
         self.assertTrue(any(r['results'] and r['results'][-1]['status'] == 'generating' for r in saved))
         self.assertTrue(all(r['model_invoked'] for r in result['results']))
+        self.assertEqual(result['authorization']['state'], 'expired')
+        self.assertFalse(benchmark.LIVE_EVALUATION_ENABLED)
+
+    def test_authorization_cannot_be_reused_after_completion_or_abort(self):
+        for successful in (True, False):
+            backend = FakeBackend()
+            permit = benchmark.OneRunAuthorization()
+            backend.verified = successful
+            first, _, _ = self.run_fake(backend=backend, authorization=permit)
+            self.assertEqual(first['authorization']['state'], 'expired')
+            second, calls, _ = self.run_fake(authorization=permit)
+            calls.assert_not_called()
+            self.assertEqual(second['authorization']['state'], 'expired')
+            self.assertIn('consumed or expired', second['error'])
+
+    def test_scope_changes_or_unpinned_backend_are_rejected_before_model(self):
+        backend = FakeBackend()
+        backend.image = 'python:latest'
+        result, calls, _ = self.run_fake(backend=backend)
+        calls.assert_not_called()
+        self.assertEqual(result['authorization']['state'], 'expired')
+        tasks = copy.deepcopy(load_tasks())
+        tasks[0]['tests'][0]['expected'] = 999
+        with patch.object(benchmark, 'load_tasks', return_value=tasks):
+            result, calls, _ = self.run_fake()
+        calls.assert_not_called()
+        self.assertIn('scope/policy binding mismatch', result['error'])
+
+    def test_duplicate_out_of_order_and_cross_harness_use_rejected(self):
+        worker = FunctionalHarness(FakeBackend())
+        permit = benchmark.OneRunAuthorization()
+        permit.claim(worker)
+        with self.assertRaises(RuntimeError):
+            permit.task(worker, 'clamp', 'model')
+        with self.assertRaises(RuntimeError):
+            permit.task(FunctionalHarness(FakeBackend()), 'sum_even', 'model')
+        permit.task(worker, 'sum_even', 'model')
+        with self.assertRaises(RuntimeError):
+            permit.task(worker, 'sum_even', 'model')
+        permit.expire()
+        with self.assertRaises(RuntimeError):
+            permit.task(worker, 'sum_even', 'grade')
+
+    def test_controller_runtime_error_expires_and_stops_before_grading(self):
+        def error(task_id, **kwargs):
+            return {**generated(task_id), 'error': 'ConnectionError: controlled model failure'}
+        backend = FakeBackend()
+        result, calls, _ = self.run_fake(error, backend)
+        self.assertEqual(calls.call_count, 1)
+        self.assertEqual(backend.calls, 0)
+        self.assertEqual(result['authorization']['state'], 'expired')
+        self.assertIsNone(result['summary']['overall_task_success_rate'])
+
+    def test_report_write_failure_still_expires_authorization(self):
+        permit = benchmark.OneRunAuthorization()
+        with self.assertRaises(OSError):
+            benchmark.run_benchmark(chat_fn=object(), harness=FunctionalHarness(FakeBackend()),
+                authorization=permit, model_metadata={}, save=lambda r: (_ for _ in ()).throw(OSError('disk failure')))
+        self.assertEqual(permit.state, 'expired')
+
+    def test_changed_fixture_fingerprint_blocks_even_fresh_authorization(self):
+        with patch.object(benchmark, 'fixture_hash', return_value='changed'):
+            result, calls, _ = self.run_fake()
+        calls.assert_not_called()
+        self.assertEqual(result['authorization']['state'], 'expired')
+
+    def test_worker_runtime_failure_stops_remaining_tasks_and_expires(self):
+        for status in ('runtime_error', 'timeout', 'result_error'):
+            with self.subTest(status=status):
+                grade = {'worker': {'status': status, 'passed': False, 'planned': 5, 'executed': 0,
+                                    'passed_count': 0}, 'functional_tests': {},
+                         'requested_change_confirmed': False, 'requested_change_status': 'not_demonstrated'}
+                with patch.object(controller, 'grade_candidate_offline', return_value=grade):
+                    result, calls, _ = self.run_fake()
+                self.assertEqual(calls.call_count, 1)
+                self.assertEqual(result['authorization']['state'], 'expired')
+                self.assertIsNone(result['summary']['overall_task_success_rate'])
 
     def test_security_failure_prevents_any_model_call(self):
         backend = FakeBackend()
@@ -92,7 +171,7 @@ class FunctionalBenchmarkTests(unittest.TestCase):
             nonlocal count
             count += 1
             report = original()
-            if count == 5:
+            if count == 6:
                 report.update(verified=False, reason='TEST DOUBLE metadata command incomplete')
             return report
 
@@ -171,7 +250,7 @@ class FunctionalBenchmarkTests(unittest.TestCase):
 
         # Neither chat nor the fake transport executes candidate Python here.
         result = benchmark.run_benchmark(chat_fn=chat, harness=FunctionalHarness(FakeBackend()),
-                                         model_metadata={'test_double': True})
+                                         model_metadata={'test_double': True}, authorization=benchmark.OneRunAuthorization())
         self.assertEqual(result['summary']['vectors_passed'], 29)
         self.assertEqual(result['summary']['model_tool_calls'], 10)
         self.assertEqual(result['summary']['agent_syntax_verified'], 5)
