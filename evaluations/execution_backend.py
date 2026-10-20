@@ -1,8 +1,7 @@
-"""Execution interface and fail-closed Docker policy scaffolding.
+"""Execution interface and policy; Step 28C permits controlled Docker probes only.
 
-No container transport is enabled in this revision: prerequisites and real
-security probes are unavailable. This module never executes candidate Python.
-Command availability, inspect fixtures, and saved reports cannot open the gate.
+Model execution stays blocked even after successful controlled verification.
+Saved reports are evidence, never execution permits.
 """
 from dataclasses import asdict, dataclass
 import re
@@ -57,8 +56,8 @@ class ContainerPolicy:
             'ipc_namespace': 'private', 'cgroup_namespace': 'private',
             'devices': [], 'host_environment': [], 'volumes': [],
             'tmpfs': {'/tmp': 'rw,noexec,nosuid,nodev,size=1048576,mode=1777'},
-            'input_transport': 'bounded stdin JSON; never bind mounts',
-            'result_transport': 'bounded stdout/stderr; host grades returned values',
+            'input_transport': 'bounded UTF-8 program over stdin; never bind mounts',
+            'result_transport': 'bounded stdout/stderr; structured probe observations',
             'timeout_cleanup': 'force-remove only owned random-name container; verify absent',
             'enforced': False,
         }
@@ -88,8 +87,14 @@ def validate_inspection(document, image_id):
         actual = host.get(key)
         if type(actual) is not type(value) or actual != value:
             errors.append(f'Isolation setting mismatch: {key}')
-    for key in ('Binds', 'Mounts', 'CapAdd', 'Devices', 'DeviceRequests', 'VolumesFrom',
-                'PortBindings', 'ExtraHosts', 'Links', 'GroupAdd', 'Sysctls'):
+    # Moby declares HostConfig.Mounts and Sysctls with JSON omitempty. Their
+    # absence means no requested mounts/sysctls, not unavailable evidence.
+    # Effective top-level Mounts MUST still be present and empty below.
+    for key in ('Mounts', 'Sysctls'):
+        if host.get(key) not in (None, [], {}):
+            errors.append(f'Unexpected isolation setting: {key}')
+    for key in ('Binds', 'CapAdd', 'Devices', 'DeviceRequests', 'VolumesFrom',
+                'PortBindings', 'ExtraHosts', 'Links', 'GroupAdd'):
         if key not in host or host[key] not in (None, [], {}):
             errors.append(f'Unexpected or missing isolation evidence: {key}')
     if document.get('Mounts') != [] or config.get('Volumes') not in (None, {}):
@@ -122,23 +127,37 @@ class ExecutionBackend(Protocol):
 
 
 class DockerExecutionBackend:
-    """Unavailable execution adapter: no host fallback, no attestation override.
-
-    Intended runtime: Docker Desktop Linux containers on WSL 2. A real transport,
-    bounded stream handling, timeout/removal lifecycle and controlled in-container
-    probe runner still require implementation and validation on that platform.
-    """
+    """Controlled-probe adapter; live candidate execution is disabled for Step 28C."""
     def __init__(self, image=None):
         self.policy = ContainerPolicy()
         self.image = image
+        self._probe_report = None
+        self._transport = None
         if image is not None:
             self.policy.plan(image)  # Reject mutable tags and command injection.
 
     def verify(self):
+        if self._probe_report is not None:
+            import copy
+            report = copy.deepcopy(self._probe_report)
+            try:
+                identity = self._transport.preflight()
+                from pathlib import Path
+                import hashlib
+                from . import verify_docker_isolation
+                current_probes = hashlib.sha256(Path(verify_docker_isolation.__file__).read_bytes()).hexdigest()
+                if identity != report.get('identity') or current_probes != report.get('probe_runner_sha256'):
+                    report['verified'] = False
+                    report['reason'] = 'Runtime/image/policy/transport/probe identity changed; reverify.'
+            except Exception as exc:
+                report['verified'] = False
+                report['reason'] = f'Current identity verification failed: {exc}'
+            report['execution_enabled'] = False
+            return report
         tools = {name: shutil.which(name) for name in ('docker', 'podman', 'wsl')}
         reason = ('Docker CLI unavailable.' if not tools['docker'] else
                   'Docker discovered, but discovery is not isolation verification.')
-        reason += ' Container execution transport and real security probes are not verified; execution is disabled.'
+        reason += ' Explicit controlled security verification is required; live execution is disabled in Step 28C.'
         return {
             'backend': 'docker-linux', 'verified': False, 'execution_enabled': False,
             'reason': reason, 'detected_executables': tools,
@@ -154,9 +173,19 @@ class DockerExecutionBackend:
         }
 
     def execute(self, source, task):
-        # This gate is unconditional; even installed Docker or a forged JSON
-        # verification report cannot enable unvalidated candidate execution.
-        return blocked_result(self.verify()['reason'])
+        return blocked_result('Step 28C authorizes controlled probes only; live candidate execution remains disabled.')
+
+    def run_security_checks(self):
+        """Explicit authorized action, never performed by verify() or execute()."""
+        from pathlib import Path
+        from .docker_transport import DockerTransport
+        from .verify_docker_isolation import run_security_probes
+        if not self.image:
+            raise ValueError('An explicitly selected immutable image is required')
+        self._probe_report = None
+        self._transport = DockerTransport(self.image)
+        self._probe_report = run_security_probes(self._transport, Path(__file__).resolve().parent / 'runs')
+        return self.verify()
 
 
 def verification_passed(report):

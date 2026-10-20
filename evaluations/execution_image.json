@@ -1,0 +1,12 @@
+{
+  "repository": "docker.io/library/python",
+  "resolved_tag": "3.12.15-slim-bookworm",
+  "python_version": "3.12.15",
+  "platform": "linux/amd64",
+  "image": "python@sha256:2ed6491b93cd49272ee6de2b5a38440c3448360322c089fc23e370722d74179d",
+  "compressed_bytes_reported_by_registry": 47558478,
+  "docker_reported_image_size_bytes_after_pull": 197098586,
+  "registry_metadata_last_updated": "2026-10-06T11:08:13.610185Z",
+  "initial_download_approved_by_user": true,
+  "purpose": "Controlled Step 28C isolation probes only; no live model benchmarking"
+}

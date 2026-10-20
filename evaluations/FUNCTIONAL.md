@@ -1,5 +1,9 @@
 # Step 27: functional evaluation framework
 
+See [DOCKER_TRANSPORT.md](DOCKER_TRANSPORT.md) for the later Step 28C controlled
+Docker transport and actual isolation probes. Live functional evaluation remains
+disabled in this stage.
+
 Step 28 adds a disabled backend interface and evaluator integration. See
 [EXECUTION_SETUP.md](EXECUTION_SETUP.md) for actual prerequisite findings, manual
 installation instructions and the remaining runtime verification work. The

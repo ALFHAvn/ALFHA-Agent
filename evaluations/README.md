@@ -99,3 +99,9 @@ command. Existing syntax evaluations remain unchanged.
 See [EXECUTION_SETUP.md](EXECUTION_SETUP.md) for the fail-closed backend interface,
 Windows/WSL/Docker findings, manual installation instructions and required runtime
 security tests. No candidate execution or live functional benchmark is enabled.
+
+## Step 28C controlled Docker transport
+
+See [DOCKER_TRANSPORT.md](DOCKER_TRANSPORT.md) for the pinned image, real transport,
+actual behavioral security probes and tests. Run explicit controlled verification
+with `python -m evaluations.verify_docker_isolation`. The live gate stays closed.

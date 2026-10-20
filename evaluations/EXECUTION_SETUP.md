@@ -1,5 +1,9 @@
 # Step 28: execution prerequisites and fail-closed backend interface
 
+Historical Step 28 findings follow. WSL 2 and Docker became operational in Step
+28B. See [DOCKER_TRANSPORT.md](DOCKER_TRANSPORT.md) for Step 28C's real controlled
+transport and verification results. Live model execution remains disabled.
+
 ## Actual status
 
 The production Docker adapter is a **disabled interface**, not a working secure
