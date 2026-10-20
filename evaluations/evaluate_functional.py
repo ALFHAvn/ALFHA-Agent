@@ -163,6 +163,24 @@ def one_functional_case(task_id, *, chat_fn, backend=None):
     }
 
 
+def grade_candidate_offline(task_id, source, harness):
+    """Explicit offline worker bridge. No chat request or model budget changes."""
+    task = task_by_id(task_id)
+    original = (CASE_ROOT / task['filename']).read_text(encoding='utf-8-sig')
+    assessment = assess_candidate(original, source, task)
+    grade = harness.run(task_id, source)
+    assessment['functional_tests'].update({key: value for key, value in grade.items()
+                                         if key in ('status', 'passed', 'executed', 'attempted', 'planned',
+                                                    'passed_count', 'score', 'results', 'reason')})
+    confirmed = grade.get('passed') is True and assessment['target_function_changed']
+    assessment.update(task=task_id, mode='offline_worker', model_invoked=False,
+                      live_evaluation_enabled=False, worker=grade,
+                      requested_change_confirmed=bool(confirmed),
+                      requested_change_status='confirmed' if confirmed else 'not_demonstrated',
+                      passed=bool(confirmed and assessment['syntax_valid']))
+    return assessment
+
+
 def static_report(backend=None):
     results = []
     for task in load_tasks():

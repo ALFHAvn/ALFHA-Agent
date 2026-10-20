@@ -1,5 +1,8 @@
 # Step 27: functional evaluation framework
 
+For Step 28D's offline worker and actual host grading, see
+[FUNCTIONAL_WORKER.md](FUNCTIONAL_WORKER.md). Live Qwen3 evaluation is still disabled.
+
 See [DOCKER_TRANSPORT.md](DOCKER_TRANSPORT.md) for the later Step 28C controlled
 Docker transport and actual isolation probes. Live functional evaluation remains
 disabled in this stage.

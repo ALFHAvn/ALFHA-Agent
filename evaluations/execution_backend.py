@@ -187,6 +187,15 @@ class DockerExecutionBackend:
         self._probe_report = run_security_probes(self._transport, Path(__file__).resolve().parent / 'runs')
         return self.verify()
 
+    def run_verified_worker(self, program):
+        """Offline harness only; never an exposed model tool or live enablement."""
+        report = self.verify()
+        checks = report.get('security_checks', {})
+        if (report.get('verified') is not True or set(checks) != set(PROBES) or
+                not all(c.get('status') == 'passed' and c.get('evidence') for c in checks.values())):
+            raise RuntimeError('Current complete isolation verification is required')
+        return self._transport.run_controlled(program)
+
 
 def verification_passed(report):
     """Require complete, current probe evidence from a trusted in-process adapter.

@@ -1,5 +1,8 @@
 # Step 28C: controlled Docker transport
 
+Step 28D adds the reviewed offline functional worker on this unchanged transport;
+see [FUNCTIONAL_WORKER.md](FUNCTIONAL_WORKER.md). Live model evaluation stays disabled.
+
 Real transport is implemented for **trusted security probes only**. No Ollama
 requests, host candidate execution, or live functional benchmarking are enabled.
 DockerExecutionBackend.execute remains unconditionally blocked in this stage.

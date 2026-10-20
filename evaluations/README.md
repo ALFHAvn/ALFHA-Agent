@@ -105,3 +105,9 @@ security tests. No candidate execution or live functional benchmark is enabled.
 See [DOCKER_TRANSPORT.md](DOCKER_TRANSPORT.md) for the pinned image, real transport,
 actual behavioral security probes and tests. Run explicit controlled verification
 with `python -m evaluations.verify_docker_isolation`. The live gate stays closed.
+
+## Step 28D offline functional worker
+
+See [FUNCTIONAL_WORKER.md](FUNCTIONAL_WORKER.md) for the restricted worker, structured
+protocol, host grading, per-vector results and offline Docker integration command.
+The live model gate remains closed.
