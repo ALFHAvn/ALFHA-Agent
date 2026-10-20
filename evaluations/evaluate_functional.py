@@ -109,9 +109,12 @@ def one_functional_case(task_id, *, chat_fn, backend=None):
                     answer = message.content or ''
                     edits = any(c['tool'] == 'edit_workspace_file' and c['result'].startswith('Successfully') for c in telemetry['trace'])
                     if not recovery_used and not edits:
-                        recovery_used = True
                         try:
                             proposal = syntax.parse_proposal(answer)
+                            # Empty/prose/malformed responses are not dispatched
+                            # repairs. Reserve the single recovery for one strict
+                            # parsed edit proposal; validation can still reject it.
+                            recovery_used = True
                             result = dispatch(proposal['name'], proposal['arguments'], 'json_recovery')
                             telemetry['recoveries'].append({'accepted': result.startswith('Successfully'), 'result': result})
                             messages.append({'role': 'system', 'content': 'Controller processed JSON proposal: ' + result + ' Use real tools to finish and verify.'})

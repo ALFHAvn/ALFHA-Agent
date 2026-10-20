@@ -82,6 +82,72 @@ class FunctionalEvaluationTests(unittest.TestCase):
         self.assertFalse(result['verified_by_agent'])
         self.assertEqual(result['tool_calls'], 1)
 
+    def test_empty_response_does_not_consume_later_strict_recovery(self):
+        # Replay the recorded clamp response pattern with a fixed test double.
+        # Candidate text is only edited/parsed; no Docker/model execution occurs.
+        read = ('read_workspace_file', {'filename': 'clamp.py'})
+        proposal = json.dumps({'name': 'edit_workspace_file', 'arguments': {
+            'filename': 'clamp.py', 'old_text': '    return min(value, lower)\n',
+            'new_text': '    return max(min(value, upper), lower)\n'}})
+        result = self.run_case([response(calls=[read]), response(),
+            response(calls=[read]), response(proposal),
+            response(calls=[('check_python_syntax', {'filename': 'clamp.py'})]),
+            response('Done')], task_id='clamp')
+        self.assertEqual(result['successful_edits'], 1)
+        self.assertEqual(result['recovered_json_calls'], 1)
+        self.assertEqual(result['tool_calls'], 4)
+        self.assertEqual(result['budget_remaining'], 2)
+        self.assertTrue(result['verified_by_agent'])
+        self.assertIn('return max(min(value, upper), lower)', result['candidate_source'])
+        self.assertIsNone(result['passed'])  # No claim about executed vectors.
+
+    def test_malformed_proposal_does_not_consume_later_strict_recovery(self):
+        tool, args = self.edit()
+        bad = json.dumps({'filename': 'sum_even.py', 'content': 'not authorized'})
+        result = self.run_case([response(bad), response(json.dumps({'name': tool, 'arguments': args}))])
+        self.assertEqual(result['invalid_json_proposals'], 1)
+        self.assertEqual(result['recovered_json_calls'], 1)
+        self.assertEqual(result['successful_edits'], 1)
+
+    def test_parsed_unauthorized_proposal_consumes_only_dispatch_and_stays_rejected(self):
+        tool, args = self.edit()
+        unauthorized = {**args, 'filename': '../main.py'}
+        result = self.run_case([response(), response(json.dumps({'name': tool, 'arguments': unauthorized})),
+                               response(json.dumps({'name': tool, 'arguments': args}))])
+        self.assertEqual(result['recovered_json_calls'], 1)
+        self.assertEqual(result['tool_calls'], 1)
+        self.assertEqual(result['invalid_dispatched_calls'], 1)
+        self.assertFalse(result['changed'])
+        self.assertIn('Only the current evaluation file', result['trace'][0]['result'])
+
+    def test_preserved_recovery_obeys_remaining_six_call_budget(self):
+        tool, args = self.edit()
+        result = self.run_case([response(),
+            response(calls=[('read_workspace_file', {'filename': 'sum_even.py'})] * 5),
+            response(json.dumps({'name': tool, 'arguments': args}))])
+        self.assertEqual(result['tool_calls'], 6)
+        self.assertEqual(result['budget_remaining'], 0)
+        self.assertEqual(result['recovered_json_calls'], 1)
+        self.assertEqual(result['model_requests'], 3)
+
+    def test_literal_backslash_newline_is_not_normalized_into_an_edit(self):
+        tool, args = self.edit()
+        malformed = {**args, 'old_text': args['old_text'] + r'\n'}
+        result = self.run_case([response(calls=[(tool, malformed)])])
+        self.assertFalse(result['changed'])
+        self.assertEqual(result['successful_edits'], 0)
+        self.assertEqual(result['trace'][0]['result'], 'Error: Text not found. File unchanged.')
+
+    def test_palindrome_recorded_candidate_still_rejected_despite_ast_parse(self):
+        source = ("def is_palindrome(text):\n"
+                  "    cleaned = ''.join(filter(str.isalnum, text.lower()))\n"
+                  "return cleaned == cleaned[::-1]\n")
+        checks = validation.validate_source(source, self.task('palindrome'))
+        self.assertTrue(checks['syntax_valid'])  # Parser-only field, not compile evidence.
+        self.assertFalse(checks['contract_valid'])
+        self.assertFalse(checks['static_policy_passed'])
+        self.assertIn('Unsupported call target', checks['diagnostics'])
+
     def test_no_change_or_model_claim_does_not_pass(self):
         result = self.run_case([response('All functional tests passed!')])
         self.assertFalse(result['changed'])
