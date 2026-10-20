@@ -17,6 +17,7 @@ from .execution_backend import PROBES, DockerExecutionBackend
 from .docker_transport import PINNED_IMAGE
 from .functional_harness import FunctionalHarness
 from .functional_validation import CASE_ROOT, load_tasks
+from .checkpoints import atomic_write, process_identity, task_states
 
 # Step 29A: the historical verification failure is unresolved. A separate
 # reviewed milestone is required before any live model evaluation resumes.
@@ -105,7 +106,7 @@ def protected_hashes():
     paths += [root / 'evaluations' / name for name in (
         'evaluate_functional.py', 'functional_validation.py', 'functional_harness.py',
         'functional_worker.py', 'execution_backend.py', 'docker_transport.py',
-        'compilation_worker.py', 'tool_feedback.py')]
+        'compilation_worker.py', 'tool_feedback.py', 'checkpoints.py')]
     paths += sorted(p for p in CASE_ROOT.rglob('*') if p.is_file())
     return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
@@ -116,6 +117,8 @@ def summarize(report):
     complete = report['status'] == 'completed' and len(grades) == report['tasks_planned']
     return {
         'tasks_attempted': len(rows), 'tasks_graded': len(grades),
+        'tasks_with_unknown_outcomes': [r['task'] for r in rows if 'worker' not in r],
+        'telemetry_scope': 'completed controller returns only; partial progress is separate and never presumed zero',
         'tasks_passed': sum(g['passed'] is True for g in grades),
         'overall_task_success_rate': (sum(g['passed'] is True for g in grades) / report['tasks_planned']) if complete else None,
         'vectors_planned': report['vectors_planned'],
@@ -158,9 +161,17 @@ def run_benchmark(*, chat_fn, harness, model_metadata, save=lambda report: None,
         'verification_boundaries': [],
         'grading': 'independent host grader; expected outcomes never sent to candidate; no feedback or task retries',
         'protected_files_before': protected_hashes(),
+        'run_id': authorization.run_id if isinstance(authorization, OneRunAuthorization) else uuid.uuid4().hex,
+        'process': process_identity(), 'checkpoint_sequence': 0,
     }
 
     def checkpoint():
+        report['checkpoint_sequence'] += 1
+        report['checkpoint_utc'] = now()
+        report['task_states'] = task_states(report, tasks)
+        report['completed_results'] = [r for r in report['results'] if r.get('status') == 'completed' and 'worker' in r]
+        report['in_progress_telemetry'] = [r for r in report['results'] if r not in report['completed_results']]
+        report['telemetry_complete'] = not report['in_progress_telemetry']
         report['authorization'] = authorization.record() if isinstance(authorization, OneRunAuthorization) else {'state': 'not_granted'}
         report['summary'] = summarize(report)
         attempted = {r['task'] for r in report['results']}
@@ -193,7 +204,11 @@ def run_benchmark(*, chat_fn, harness, model_metadata, save=lambda report: None,
             checkpoint()
             print(f"Model task: {task['id']} (one attempt, six-call budget)", flush=True)
             started = time.monotonic()
-            generated = controller.one_functional_case(task['id'], chat_fn=chat_fn)
+            def progress(snapshot):
+                row['progress'] = snapshot
+                checkpoint()
+
+            generated = controller.one_functional_case(task['id'], chat_fn=chat_fn, progress=progress)
             row.update(generated)
             row.update(mode='live_functional_benchmark', status='grading', model_invoked=row['model_requests'] > 0)
             checkpoint()
@@ -254,9 +269,7 @@ def main(argv=None):
     output = runs / ('functional_live_' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ') + '.json')
 
     def save(report):
-        temporary = output.with_suffix('.json.tmp')
-        temporary.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding='utf-8')
-        temporary.replace(output)
+        atomic_write(output, report)
 
     try:
         models = client.list().model_dump(mode='json')['models']

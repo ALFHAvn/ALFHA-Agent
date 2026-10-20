@@ -1,5 +1,6 @@
 """Functional framework with a fail-closed execution-backend interface."""
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
@@ -40,7 +41,7 @@ def empty_telemetry():
     }
 
 
-def one_functional_case(task_id, *, chat_fn, backend=None):
+def one_functional_case(task_id, *, chat_fn, backend=None, progress=None):
     """Exercise the controller with an explicitly injected offline test double.
 
     Live CLI use is blocked until an execution backend is implemented and verified.
@@ -79,6 +80,20 @@ def one_functional_case(task_id, *, chat_fn, backend=None):
             {'role': 'user', 'content': task['instruction']},
         ]
 
+        def publish(event):
+            if progress is not None:
+                partial = copy.deepcopy(telemetry)
+                trace = partial['trace']
+                partial.update(tool_calls=len(trace), budget_remaining=syntax.MAX_CALLS - len(trace),
+                               native_calls_dispatched=sum(c['origin'] == 'tool_interface' for c in trace),
+                               recovered_json_calls=sum(c['origin'] == 'json_recovery' for c in trace),
+                               invalid_dispatched_calls=sum(c['result'].startswith('Error:') for c in trace),
+                               successful_edits=sum(c['tool'] == 'edit_workspace_file' and c['result'].startswith('Successfully') for c in trace))
+                # Candidate bytes remain data, never imported or executed.
+                progress(copy.deepcopy({'event': event, 'timestamp_utc': datetime.now(timezone.utc).isoformat(),
+                                        'telemetry': partial, 'candidate_source': target.read_text(encoding='utf-8-sig'),
+                                        'verification_results': verifications, 'complete': False}))
+
         def dispatch(name, args, origin):
             nonlocal unsuccessful_edits
             # Functional tasks intentionally authorize edits to syntax-valid starters.
@@ -106,6 +121,7 @@ def one_functional_case(task_id, *, chat_fn, backend=None):
                 result = edit_feedback(result, args, unsuccessful_edits)
             telemetry['trace'].append({'tool': name, 'arguments': args, 'result': result,
                                        'raw_result': raw_result, 'origin': origin})
+            publish('tool_result')
             return result
 
         try:
@@ -117,12 +133,14 @@ def one_functional_case(task_id, *, chat_fn, backend=None):
                         sent_retry_indexes.add(index)
                 telemetry['retry_prompts'] = len(sent_retry_indexes)
                 telemetry['model_requests'] += 1
+                publish('before_model_request')
                 response = chat_fn(model=agent.MODEL, messages=messages, tools=agent.select_tools(syntax.ALLOWED))
                 telemetry['model_responses'].append(response.model_dump(mode='json'))
                 message = response.message
                 messages.append(message)
                 requested = message.tool_calls or []
                 telemetry['native_calls_requested'] += len(requested)
+                publish('model_response')
                 if not requested:
                     answer = message.content or ''
                     edits = any(c['tool'] == 'edit_workspace_file' and c['result'].startswith('Successfully') for c in telemetry['trace'])
