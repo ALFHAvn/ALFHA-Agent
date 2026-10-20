@@ -1,8 +1,9 @@
 # Step 29B: proposed single-run authorization
 
-Status: preflight complete; **awaiting explicit human approval**. No live model
-benchmark has run in this milestone. The default API/CLI gate remains disabled.
-The unexplained historical verification failure remains unresolved.
+Status: **one explicitly approved benchmark completed**, using commit 915ccc1.
+The one-run permit expired. Default API/CLI execution remains disabled. Another
+run requires separate approval. The historical verification failure remains
+unresolved and did not recur in this run.
 
 Only after approval, the exact operator command is:
 
@@ -50,7 +51,70 @@ Fresh real mandatory security checks: **11/11 passed**, recorded in ignored
 evaluations/runs/isolation_20261020T170846061753Z.json. They confirmed the local
 Linux engine and approved Python image; they did not execute model-generated code.
 
-After approval and the one live attempt, the final review must confirm expiration,
-default CLI rejection, no remaining evaluation containers, full regressions, and
-record actual benchmark outcomes. This document must then be updated with those
-results; preflight evidence is not a functional benchmark score.
+## Actual authorized results
+
+Exactly one invocation of the command above was made after the user's explicit
+approval. No task was rerun, and no previous successful result was reused.
+Complete ignored JSON report:
+evaluations/runs/functional_live_20261020T171451704939Z.json.
+
+| Task | Outcome | Passed/executed vectors | Native calls | Successful edits |
+|---|---|---|---|---|
+| sum_even | Passed | 5/5 | 2 | 1 |
+| clamp | Failed; starter unchanged | 2/7 | 2 | 0 |
+| palindrome | Static policy rejection | 0 executed; 6 not run | 3 | 1 |
+| unique_order | Failed; starter unchanged | 3/5 | 6 | 0 |
+| count_words | Passed | 6/6 | 3 | 1 |
+
+**2/5 attempted tasks passed (40%)**. **16/23 executed vectors passed**. All five
+tasks were attempted; no tasks remain unattempted. Six of the 29 planned vectors
+were not executed because palindrome's candidate was rejected before execution.
+They are not presented as executed assertion failures.
+
+Telemetry: 25 model requests, 16 requested/dispatched native tool calls, zero
+recovered JSON calls, three failed native tool actions, one invalid JSON proposal,
+five established controller retry prompts, and three successful edits. Average
+tool use was 3.2 calls/task; the largest was six. There were no task retries,
+isolation retries or rejected oversized tool-call batches.
+
+clamp read its source twice and later printed a valid edit proposal without using
+the actual tool interface. The single recovery opportunity had already been
+consumed on an earlier non-JSON response, so this later proposal was not applied.
+unique_order's two edit attempts used literal backslash-n text that did not match
+the real newlines, correctly producing "Text not found" without changing files.
+count_words initially supplied content instead of old_text/new_text; this action
+was rejected, then a subsequent valid edit produced the passing final candidate.
+
+palindrome's edit placed a return statement at module scope and used unsupported
+filter/call structure. It was rejected by the existing static policy and was
+never executed. An interim commentary described an extra helper function; the
+retained candidate confirms the actual issues above. No fixture/profile was
+changed to admit this candidate.
+
+The controller reported five successful final AST parses and two agent-initiated
+syntax checks. These counters retain their existing meanings: ast.parse can
+accept a module-level return even though compilation would reject it. Thus these
+are **not five independently established compilable programs**. The policy
+rejection and Docker-only trusted grading remain decisive. Syntax alone does
+not establish functional correctness.
+
+All four executed candidate jobs exited normally with validated observations and
+verified removal. There were no candidate runtime errors, execution timeouts,
+malformed grading streams or failed cleanup. All **15/15** outer verification
+boundaries passed; full current verification evidence is retained, along with
+the worker's verification and raw container/cleanup evidence. The run's fresh
+mandatory probes passed **11/11**. No isolation anomaly was recorded; this does
+not explain or resolve the historical intermittent failure.
+
+Final authorization state is expired (run ID cd7fd85c277a4c51ada502149a94d5e1),
+with persistent=False. LIVE_EVALUATION_ENABLED remains False and the default CLI
+was checked and refused execution. An independent final Docker query found no
+evaluation containers. Protected implementation/fixture hashes were unchanged
+throughout the run, and **138/138 post-run regressions passed**. Those regression
+tests use test doubles and did not invoke an additional live model benchmark.
+
+No implementation changes were made after the approved run. This is one small,
+fixed pure-function benchmark, not evidence of general development competence.
+The remaining reliability issues are applied tool use, exact editing arguments
+and generating code within the established function profile. Addressing them
+requires a separate milestone, not alteration or repetition of this benchmark.
