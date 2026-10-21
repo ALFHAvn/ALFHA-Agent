@@ -1,0 +1,49 @@
+[
+  {
+    "id": "syntax",
+    "functional_task": "step39_add_one",
+    "module": "add_one.py",
+    "initial_files": {
+      "add_one.py": "def add_one(value)\n    return value + 1\n"
+    },
+    "reference_source": "def add_one(value):\n    return value + 1\n",
+    "description": "Repair the missing colon in add_one.py. Preserve the signature, body and newline; change nothing else.",
+    "exact_source": "def add_one(value):\n    return value + 1\n"
+  },
+  {
+    "id": "even_sum",
+    "functional_task": "sum_even",
+    "module": "sum_even.py",
+    "initial_files": {
+      "sum_even.py": "def sum_even(numbers):\n    return sum(numbers)\n"
+    },
+    "reference_source": "def sum_even(numbers):\n    return sum(n for n in numbers if n % 2 == 0)\n",
+    "description": "Fix sum_even(numbers) to sum only even integers, including negatives and zero. Empty input returns 0; preserve input and the signature."
+  },
+  {
+    "id": "bounds",
+    "functional_task": "clamp",
+    "module": "clamp.py",
+    "initial_files": {
+      "clamp.py": "def clamp(value, lower, upper):\n    return value\n",
+      "test_clamp.py": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n"
+    },
+    "reference_source": "def clamp(value, lower, upper):\n    return max(lower, min(value, upper))\n",
+    "description": "Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.",
+    "test_file": "test_clamp.py",
+    "expected_test_source": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n\ndef test_edges():\n    assert clamp(-1, 0, 10) == 0\n    assert clamp(11, 0, 10) == 10\n    assert clamp(0, 0, 10) == 0\n    assert clamp(10, 0, 10) == 10\n    assert clamp(7, 3, 3) == 3\n"
+  },
+  {
+    "id": "stable_unique",
+    "functional_task": "unique_order",
+    "module": "unique_order.py",
+    "initial_files": {
+      "unique_order.py": "def unique_order(numbers):\n    return list(numbers)\n",
+      "test_unique_order.py": "from unique_order import unique_order\n\ndef test_empty():\n    assert unique_order([]) == []\n"
+    },
+    "reference_source": "def unique_order(numbers):\n    result = []\n    for number in numbers:\n        if number not in result:\n            result.append(number)\n    return result\n",
+    "description": "Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.",
+    "test_file": "test_unique_order.py",
+    "expected_test_source": "from unique_order import unique_order\n\ndef test_empty():\n    assert unique_order([]) == []\n\ndef test_order():\n    assert unique_order([3, 1, 3, 2, 1]) == [3, 1, 2]\n    assert unique_order([-1, 0, -1, 2, 0]) == [-1, 0, 2]\n\ndef test_input():\n    values = [5, 5, 5]\n    result = unique_order(values)\n    assert result == [5]\n    assert values == [5, 5, 5]\n    assert result is not values\n"
+  }
+]

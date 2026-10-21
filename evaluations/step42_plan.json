@@ -1,0 +1,1238 @@
+{
+  "version": 1,
+  "status": "pending_separate_approval",
+  "tasks": [
+    {
+      "id": "syntax",
+      "functional_task": "step39_add_one",
+      "module": "add_one.py",
+      "initial_files": {
+        "add_one.py": "def add_one(value)\n    return value + 1\n"
+      },
+      "reference_source": "def add_one(value):\n    return value + 1\n",
+      "description": "Repair the missing colon in add_one.py. Preserve the signature, body and newline; change nothing else.",
+      "exact_source": "def add_one(value):\n    return value + 1\n",
+      "functional_profile": {
+        "id": "step39_add_one",
+        "function": "add_one",
+        "parameters": [
+          "value"
+        ],
+        "tests": [
+          {
+            "args": [
+              0
+            ],
+            "expected": 1
+          },
+          {
+            "args": [
+              1
+            ],
+            "expected": 2
+          },
+          {
+            "args": [
+              -1
+            ],
+            "expected": 0
+          },
+          {
+            "args": [
+              41
+            ],
+            "expected": 42
+          },
+          {
+            "args": [
+              -8
+            ],
+            "expected": -7
+          },
+          {
+            "args": [
+              1000000
+            ],
+            "expected": 1000001
+          }
+        ],
+        "assertions": [
+          "exact integer type and value",
+          "arguments unchanged"
+        ]
+      },
+      "fixture_sha256": "7d43d1607634978b3cb62923d1625776f18069fe05e7d9c4096c7f023017aec5"
+    },
+    {
+      "id": "even_sum",
+      "functional_task": "sum_even",
+      "module": "sum_even.py",
+      "initial_files": {
+        "sum_even.py": "def sum_even(numbers):\n    return sum(numbers)\n"
+      },
+      "reference_source": "def sum_even(numbers):\n    return sum(n for n in numbers if n % 2 == 0)\n",
+      "description": "Fix sum_even(numbers) to sum only even integers, including negatives and zero. Empty input returns 0; preserve input and the signature.",
+      "functional_profile": {
+        "id": "sum_even",
+        "filename": "sum_even.py",
+        "function": "sum_even",
+        "parameters": [
+          "numbers"
+        ],
+        "instruction": "Fix sum_even(numbers) to return the sum of only the even integers, including negative even integers. An empty list returns 0. Do not mutate the input.",
+        "tests": [
+          {
+            "args": [
+              []
+            ],
+            "expected": 0
+          },
+          {
+            "args": [
+              [
+                1,
+                2,
+                3,
+                4
+              ]
+            ],
+            "expected": 6
+          },
+          {
+            "args": [
+              [
+                -4,
+                -3,
+                -2,
+                0,
+                5
+              ]
+            ],
+            "expected": -6
+          },
+          {
+            "args": [
+              [
+                1,
+                3,
+                5
+              ]
+            ],
+            "expected": 0
+          },
+          {
+            "args": [
+              [
+                2,
+                2,
+                8
+              ]
+            ],
+            "expected": 12
+          }
+        ]
+      },
+      "fixture_sha256": "7d21151f044b736e88646ae97326d65970e7734cb96d839d37afd68f8063876e"
+    },
+    {
+      "id": "bounds",
+      "functional_task": "clamp",
+      "module": "clamp.py",
+      "initial_files": {
+        "clamp.py": "def clamp(value, lower, upper):\n    return value\n",
+        "test_clamp.py": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n"
+      },
+      "reference_source": "def clamp(value, lower, upper):\n    return max(lower, min(value, upper))\n",
+      "description": "Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.",
+      "test_file": "test_clamp.py",
+      "expected_test_source": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n\ndef test_edges():\n    assert clamp(-1, 0, 10) == 0\n    assert clamp(11, 0, 10) == 10\n    assert clamp(0, 0, 10) == 0\n    assert clamp(10, 0, 10) == 10\n    assert clamp(7, 3, 3) == 3\n",
+      "functional_profile": {
+        "id": "clamp",
+        "filename": "clamp.py",
+        "function": "clamp",
+        "parameters": [
+          "value",
+          "lower",
+          "upper"
+        ],
+        "instruction": "Fix clamp(value, lower, upper) to return lower below the interval, upper above it, or value inside it. Inputs are integers with lower <= upper; boundaries are inclusive.",
+        "tests": [
+          {
+            "args": [
+              5,
+              0,
+              10
+            ],
+            "expected": 5
+          },
+          {
+            "args": [
+              -1,
+              0,
+              10
+            ],
+            "expected": 0
+          },
+          {
+            "args": [
+              11,
+              0,
+              10
+            ],
+            "expected": 10
+          },
+          {
+            "args": [
+              0,
+              0,
+              10
+            ],
+            "expected": 0
+          },
+          {
+            "args": [
+              10,
+              0,
+              10
+            ],
+            "expected": 10
+          },
+          {
+            "args": [
+              7,
+              3,
+              3
+            ],
+            "expected": 3
+          },
+          {
+            "args": [
+              -5,
+              -10,
+              -2
+            ],
+            "expected": -5
+          }
+        ]
+      },
+      "fixture_sha256": "da222e96c360e02928fe23c1beb72ed7d6cdf012dc78f5cb658f7690cb01570e"
+    },
+    {
+      "id": "stable_unique",
+      "functional_task": "unique_order",
+      "module": "unique_order.py",
+      "initial_files": {
+        "unique_order.py": "def unique_order(numbers):\n    return list(numbers)\n",
+        "test_unique_order.py": "from unique_order import unique_order\n\ndef test_empty():\n    assert unique_order([]) == []\n"
+      },
+      "reference_source": "def unique_order(numbers):\n    result = []\n    for number in numbers:\n        if number not in result:\n            result.append(number)\n    return result\n",
+      "description": "Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.",
+      "test_file": "test_unique_order.py",
+      "expected_test_source": "from unique_order import unique_order\n\ndef test_empty():\n    assert unique_order([]) == []\n\ndef test_order():\n    assert unique_order([3, 1, 3, 2, 1]) == [3, 1, 2]\n    assert unique_order([-1, 0, -1, 2, 0]) == [-1, 0, 2]\n\ndef test_input():\n    values = [5, 5, 5]\n    result = unique_order(values)\n    assert result == [5]\n    assert values == [5, 5, 5]\n    assert result is not values\n",
+      "functional_profile": {
+        "id": "unique_order",
+        "filename": "unique_order.py",
+        "function": "unique_order",
+        "parameters": [
+          "numbers"
+        ],
+        "instruction": "Fix unique_order(numbers) to return each integer once, preserving the order of first appearance. Return a new list and do not mutate the input.",
+        "tests": [
+          {
+            "args": [
+              []
+            ],
+            "expected": []
+          },
+          {
+            "args": [
+              [
+                3,
+                1,
+                3,
+                2,
+                1
+              ]
+            ],
+            "expected": [
+              3,
+              1,
+              2
+            ]
+          },
+          {
+            "args": [
+              [
+                -1,
+                0,
+                -1,
+                2,
+                0
+              ]
+            ],
+            "expected": [
+              -1,
+              0,
+              2
+            ]
+          },
+          {
+            "args": [
+              [
+                5,
+                5,
+                5
+              ]
+            ],
+            "expected": [
+              5
+            ]
+          },
+          {
+            "args": [
+              [
+                4,
+                2,
+                9
+              ]
+            ],
+            "expected": [
+              4,
+              2,
+              9
+            ]
+          }
+        ]
+      },
+      "fixture_sha256": "f19fccbd945464fb225860b10aee24f4f0081265c70931c21100f1610b5e8556"
+    }
+  ],
+  "attempts": [
+    {
+      "id": "r1-syntax",
+      "round": 1,
+      "task": "syntax",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Repair the missing colon in add_one.py. Preserve the signature, body and newline; change nothing else.\",\n  \"authorized_files\": {\n    \"add_one.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"add_one.py\": \"def add_one(value)\\n    return value + 1\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "add_one.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r1-even_sum",
+      "round": 1,
+      "task": "even_sum",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix sum_even(numbers) to sum only even integers, including negatives and zero. Empty input returns 0; preserve input and the signature.\",\n  \"authorized_files\": {\n    \"sum_even.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"sum_even.py\": \"def sum_even(numbers):\\n    return sum(numbers)\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "sum_even.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r1-bounds",
+      "round": 1,
+      "task": "bounds",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r1-stable_unique",
+      "round": 1,
+      "task": "stable_unique",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.\",\n  \"authorized_files\": {\n    \"unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"unique_order.py\": \"def unique_order(numbers):\\n    return list(numbers)\\n\",\n    \"test_unique_order.py\": \"from unique_order import unique_order\\n\\ndef test_empty():\\n    assert unique_order([]) == []\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "unique_order.py",
+                      "test_unique_order.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r2-syntax",
+      "round": 2,
+      "task": "syntax",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 43,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Repair the missing colon in add_one.py. Preserve the signature, body and newline; change nothing else.\",\n  \"authorized_files\": {\n    \"add_one.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"add_one.py\": \"def add_one(value)\\n    return value + 1\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "add_one.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r2-even_sum",
+      "round": 2,
+      "task": "even_sum",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 43,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix sum_even(numbers) to sum only even integers, including negatives and zero. Empty input returns 0; preserve input and the signature.\",\n  \"authorized_files\": {\n    \"sum_even.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"sum_even.py\": \"def sum_even(numbers):\\n    return sum(numbers)\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "sum_even.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r2-bounds",
+      "round": 2,
+      "task": "bounds",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 43,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r2-stable_unique",
+      "round": 2,
+      "task": "stable_unique",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 43,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.\",\n  \"authorized_files\": {\n    \"unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"unique_order.py\": \"def unique_order(numbers):\\n    return list(numbers)\\n\",\n    \"test_unique_order.py\": \"from unique_order import unique_order\\n\\ndef test_empty():\\n    assert unique_order([]) == []\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "unique_order.py",
+                      "test_unique_order.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r3-syntax",
+      "round": 3,
+      "task": "syntax",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 44,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Repair the missing colon in add_one.py. Preserve the signature, body and newline; change nothing else.\",\n  \"authorized_files\": {\n    \"add_one.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"add_one.py\": \"def add_one(value)\\n    return value + 1\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "add_one.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r3-even_sum",
+      "round": 3,
+      "task": "even_sum",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 44,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix sum_even(numbers) to sum only even integers, including negatives and zero. Empty input returns 0; preserve input and the signature.\",\n  \"authorized_files\": {\n    \"sum_even.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"sum_even.py\": \"def sum_even(numbers):\\n    return sum(numbers)\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "sum_even.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r3-bounds",
+      "round": 3,
+      "task": "bounds",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 44,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "r3-stable_unique",
+      "round": 3,
+      "task": "stable_unique",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 44,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.\",\n  \"authorized_files\": {\n    \"unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"unique_order.py\": \"def unique_order(numbers):\\n    return list(numbers)\\n\",\n    \"test_unique_order.py\": \"from unique_order import unique_order\\n\\ndef test_empty():\\n    assert unique_order([]) == []\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "unique_order.py",
+                      "test_unique_order.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "controller": {
+    "operation_budget": 6,
+    "responses_per_attempt": 1,
+    "retries": 0,
+    "native_tools": false,
+    "text_recovery": false,
+    "timeout_seconds": 180
+  },
+  "model_generation_authorized": false,
+  "candidate_execution_authorized": false,
+  "source_application": false,
+  "docker_scope": {
+    "maximum_jobs": 12,
+    "maximum_vectors": 69,
+    "image": "python@sha256:2ed6491b93cd49272ee6de2b5a38440c3448360322c089fc23e370722d74179d",
+    "policy": {
+      "image": "python@sha256:2ed6491b93cd49272ee6de2b5a38440c3448360322c089fc23e370722d74179d",
+      "pull": "never",
+      "memory_bytes": 268435456,
+      "cpu_nanocpus": 1000000000,
+      "cpu_seconds": 1,
+      "pids": 16,
+      "wall_seconds": 2,
+      "tmpfs_bytes": 1048576,
+      "output_bytes": 65536,
+      "user": "65534:65534",
+      "network": "none",
+      "read_only": true,
+      "privileged": false,
+      "host_mounts": [],
+      "cap_drop": [
+        "ALL"
+      ],
+      "cap_add": [],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "seccomp": "runtime_default_required",
+      "pid_namespace": "private",
+      "ipc_namespace": "private",
+      "cgroup_namespace": "private",
+      "devices": [],
+      "host_environment": [],
+      "volumes": [],
+      "tmpfs": {
+        "/tmp": "rw,noexec,nosuid,nodev,size=1048576,mode=1777"
+      },
+      "input_transport": "bounded UTF-8 program over stdin; never bind mounts",
+      "result_transport": "bounded stdout/stderr; structured probe observations",
+      "timeout_cleanup": "force-remove only owned random-name container; verify absent",
+      "enforced": false
+    },
+    "profile_sha256": "f4cad5f6dcc975d896227450367fda7c5a027fde8895ac8792c2bdfbf0d05b46",
+    "string_scope": null,
+    "generated_test_files_executed": false
+  }
+}
