@@ -132,7 +132,7 @@ print(json.dumps({'uid': os.getuid(), 'gid': os.getgid(), 'root_write_denied': d
 '''
 
 
-def run_security_probes(transport, runs_dir):
+def run_security_probes(transport, runs_dir, *, stop_on_failure=False, progress=None):
     """Collect actual observations, not just accepted Docker options."""
     checks = {name: {'status': 'not_run', 'evidence': None} for name in PROBES}
     report = {
@@ -142,11 +142,20 @@ def run_security_probes(transport, runs_dir):
         'reason': 'Controlled verification in progress; live execution remains disabled.',
         'security_checks': checks,
         'probe_runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'stop_on_failure': stop_on_failure,
     }
+    def publish():
+        report['audit'] = transport.audit
+        if progress is not None:
+            import copy
+            progress(copy.deepcopy(report))
+    publish()
     try:
         report['identity'] = transport.preflight()
     except Exception as exc:
         report['reason'] = f'Preflight failed: {type(exc).__name__}: {exc}'
+        report['failure'] = getattr(exc, 'failure', None)
+        publish()
         return report
 
     def probe(name, operation):
@@ -155,18 +164,23 @@ def run_security_probes(transport, runs_dir):
             passed, evidence = operation()
             checks[name] = {'status': 'passed' if passed else 'failed', 'evidence': evidence}
         except Exception as exc:
-            checks[name] = {'status': 'failed', 'evidence': {'error': f'{type(exc).__name__}: {exc}'}}
+            checks[name] = {'status': 'failed', 'evidence': {
+                'error': f'{type(exc).__name__}: {exc}', 'failure': getattr(exc, 'failure', None)}}
+        if checks[name]['status'] != 'passed':
+            report['reason'] = f'Mandatory probe failed: {name}; execution remains disabled.'
+        publish()
+        return not (stop_on_failure and checks[name]['status'] != 'passed')
 
     def normal():
         r = transport.run_controlled(NORMAL)
         data = json_output(r) or {}
         return success(r) and data.get('calculation') == 42 and data.get('uid') == 65534, r
-    probe('normal_calculation', normal)
+    if not probe('normal_calculation', normal): return report
 
     def wall():
         r = transport.run_controlled('import time\ntime.sleep(30)\n')
         return r.get('timed_out') is True and r.get('duration_seconds', 99) < 5 and clean(r), r
-    probe('wall_timeout', wall)
+    if not probe('wall_timeout', wall): return report
 
     def network():
         r = transport.run_controlled(NETWORK)
@@ -174,7 +188,7 @@ def run_security_probes(transport, runs_dir):
         return (success(r) and d.get('tcp_denied') and d.get('dns_denied') and
                 d.get('tcp_errno') in (1, 13, 101, 113) and d.get('interfaces') == ['lo'] and
                 len(d.get('routes', '').splitlines()) == 1), r
-    probe('network_denied', network)
+    if not probe('network_denied', network): return report
 
     def host_files():
         Path(runs_dir).mkdir(parents=True, exist_ok=True)
@@ -196,14 +210,14 @@ def run_security_probes(transport, runs_dir):
         r['host_sentinel_removed'] = not Path(directory).exists()
         return (success(r) and d.get('visible') == [] and d.get('docker_socket') is False and intact and
                 r['host_sentinel_removed'] and r.get('inspection', {}).get('Mounts') == []), r
-    probe('host_files_denied', host_files)
+    if not probe('host_files_denied', host_files): return report
 
     def memory():
         r = transport.run_controlled(MEMORY)
         d = json_output(r) or {}
         return (r.get('container_state', {}).get('OOMKilled') is True and r.get('exit_status') == 137 and
                 d.get('memory_max') == '268435456' and not r.get('timed_out') and clean(r)), r
-    probe('memory_limit', memory)
+    if not probe('memory_limit', memory): return report
 
     def cpu():
         limits = transport.run_controlled(NORMAL)
@@ -214,14 +228,14 @@ def run_security_probes(transport, runs_dir):
                     int(quota[0]) == int(quota[1]) and d.get('cpu_rlimit') == [1, 1])
         return (success(limits) and enforced and r.get('exit_status') == 137 and not r.get('timed_out') and
                 not r.get('container_state', {}).get('OOMKilled') and clean(r)), {'limits': limits, 'busy_loop': r}
-    probe('cpu_limit', cpu)
+    if not probe('cpu_limit', cpu): return report
 
     def pids():
         r = transport.run_controlled(PIDS)
         d = json_output(r) or {}
         return (success(r) and d.get('blocked') is True and d.get('errno') == 11 and
                 1 <= d.get('children', 0) <= 15 and d.get('pids_max') == '16'), r
-    probe('process_limit', pids)
+    if not probe('process_limit', pids): return report
 
     def readonly():
         r = transport.run_controlled(READONLY)
@@ -231,13 +245,13 @@ def run_security_probes(transport, runs_dir):
                 d.get('cap_effective') == '0000000000000000' and d.get('no_new_privs') == '1' and
                 d.get('seccomp') == '2' and d.get('root_uid_denied') is True and
                 d.get('unshare_denied') is True and d.get('docker_socket_exists') is False), r
-    probe('readonly_nonroot', readonly)
+    if not probe('readonly_nonroot', readonly): return report
 
     def output():
         r = transport.run_controlled('import sys\nsys.stdout.write("x" * 262144)\nsys.stdout.flush()\n')
         size = len(r['stdout'].encode('utf-8')) + len(r['stderr'].encode('utf-8'))
         return r.get('output_truncated') is True and size <= 65536 and clean(r), r
-    probe('output_limit', output)
+    if not probe('output_limit', output): return report
 
     def unsafe():
         rejected = []
@@ -252,14 +266,14 @@ def run_security_probes(transport, runs_dir):
         r = transport.run_controlled('print(42)\n')
         return len(rejected) == 4 and no_commands and success(r), {
             'rejected_options': rejected, 'no_commands_for_rejections': no_commands, 'actual_container': r}
-    probe('unsafe_configuration_rejected', unsafe)
+    if not probe('unsafe_configuration_rejected', unsafe): return report
 
     def cleanup():
         results = [transport.run_controlled(code) for code in (
             'print(42)\n', 'raise SystemExit(7)\n', 'import time\ntime.sleep(30)\n')]
         return (all(clean(r) for r in results) and results[0].get('exit_status') == 0 and
                 results[1].get('exit_status') == 7 and results[2].get('timed_out') is True), results
-    probe('cleanup', cleanup)
+    if not probe('cleanup', cleanup): return report
     try:
         report['identity_after'] = transport.preflight()
         report['identity_unchanged'] = report['identity_after'] == report['identity']
@@ -277,6 +291,7 @@ def run_security_probes(transport, runs_dir):
     report['reason'] = ('All mandatory controlled probes passed. Model execution remains disabled for Step 28C.'
                         if report['verified'] else 'Mandatory verification incomplete/failed; execution remains disabled.')
     report['audit'] = transport.audit
+    publish()
     return report
 
 

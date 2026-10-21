@@ -221,7 +221,7 @@ class DockerExecutionBackend:
     def execute(self, source, task):
         return blocked_result('Step 28C authorizes controlled probes only; live candidate execution remains disabled.')
 
-    def run_security_checks(self):
+    def run_security_checks(self, *, stop_on_failure=False, progress=None):
         """Explicit authorized action, never performed by verify() or execute()."""
         from pathlib import Path
         from .docker_transport import DockerTransport
@@ -230,7 +230,8 @@ class DockerExecutionBackend:
             raise ValueError('An explicitly selected immutable image is required')
         self._probe_report = None
         self._transport = DockerTransport(self.image)
-        self._probe_report = run_security_probes(self._transport, Path(__file__).resolve().parent / 'runs')
+        options = {'stop_on_failure': stop_on_failure, 'progress': progress} if stop_on_failure or progress is not None else {}
+        self._probe_report = run_security_probes(self._transport, Path(__file__).resolve().parent / 'runs', **options)
         return self.verify()
 
     def run_verified_worker(self, program):

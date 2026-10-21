@@ -257,8 +257,9 @@ class FunctionalHarness:
         self.backend = backend or DockerExecutionBackend(PINNED_IMAGE)
         self._profile = None
 
-    def prepare(self):
-        report = self.backend.run_security_checks()
+    def prepare(self, *, stop_on_failure=False, progress=None):
+        options = {'stop_on_failure': stop_on_failure, 'progress': progress} if stop_on_failure or progress is not None else {}
+        report = self.backend.run_security_checks(**options)
         checks = report.get('security_checks', {})
         ready = report.get('verified') is True and set(checks) == set(PROBES) and all(
             check.get('status') == 'passed' and check.get('evidence') for check in checks.values())
