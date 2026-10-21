@@ -59,10 +59,11 @@ def worker_main(request_json):
     if sys.platform != 'linux' or os.getuid() != 65534 or not os.path.exists('/.dockerenv'):
         raise RuntimeError('Worker requires the restricted non-root Linux container')
     request = json.loads(request_json)
-    if (set(request) != {'version', 'request_id', 'task_id', 'function', 'parameters', 'source', 'vectors'}
+    fields = {'version', 'request_id', 'task_id', 'function', 'parameters', 'source', 'vectors'}
+    if (set(request) not in (fields, fields | {'string_scope'})
             or request['version'] != 1):
         raise ValueError('Invalid input protocol')
-    task = {'function': request['function'], 'parameters': request['parameters']}
+    task = worker_task_contract(request)
     checks = validate_source(request['source'], task)
     if not checks['static_policy_passed']:
         raise ValueError('Worker rejected candidate policy')

@@ -5,9 +5,9 @@ import re
 import shutil
 from pathlib import Path
 try:
-    from .string_policy import STRING_METHODS, STRIP_FUNCTIONS, string_diagnostics
+    from .string_policy import STRING_METHODS, STRIP_FUNCTIONS, string_diagnostics, scoped_normalize_allowed, worker_task_contract
 except ImportError:
-    from string_policy import STRING_METHODS, STRIP_FUNCTIONS, string_diagnostics
+    from string_policy import STRING_METHODS, STRIP_FUNCTIONS, string_diagnostics, scoped_normalize_allowed, worker_task_contract
 
 
 CASE_ROOT = Path(__file__).resolve().parent / 'functional_cases'
@@ -98,6 +98,9 @@ def validate_source(source, task):
         result['diagnostics'].append(f'Parse error: {exc}')
         return result
     result['syntax_valid'] = True
+    scoped = scoped_normalize_allowed(source, task)
+    if task.get('string_scope') is not None and not scoped:
+        result['diagnostics'].append('Invalid string scope, function contract or preserved source hash')
     nodes = list(ast.walk(tree))
     if len(nodes) > MAX_AST_NODES:
         result['diagnostics'].append('AST node limit exceeded')
@@ -122,7 +125,7 @@ def validate_source(source, task):
         else:
             result['contract_valid'] = True
     for node in nodes:
-        result['diagnostics'].extend(string_diagnostics(node, parents, task['function']))
+        result['diagnostics'].extend(string_diagnostics(node, parents, task['function'], scoped))
         kind = type(node).__name__
         if kind not in ALLOWED_NODES:
             result['diagnostics'].append(f'Unsupported AST node: {kind}')

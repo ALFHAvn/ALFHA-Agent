@@ -10,6 +10,7 @@ from . import functional_validation as policy
 from .docker_transport import PINNED_IMAGE
 from .execution_backend import DockerExecutionBackend, PROBES, exact_json_equal
 from . import preserved_tasks
+from . import normalize_profile
 
 WORKER = Path(__file__).with_name('functional_worker.py')
 COMPILER = Path(__file__).with_name('compilation_worker.py')
@@ -23,7 +24,11 @@ class UnexpectedOutput(ProtocolError):
     pass
 
 
-def task_by_id(task_id):
+def task_by_id(task_id, *, string_scope=None):
+    if task_id == normalize_profile.TASK_ID:
+        return normalize_profile.task(string_scope)
+    if string_scope is not None:
+        raise ValueError('String scope is restricted to the fixed Step 41 task')
     for task in policy.load_tasks():
         if task['id'] == task_id:
             return task
@@ -34,7 +39,7 @@ def task_by_id(task_id):
 def profile_hash():
     digest = hashlib.sha256()
     from . import string_policy
-    for path in [Path(__file__), WORKER, COMPILER, Path(policy.__file__), Path(preserved_tasks.__file__), Path(string_policy.__file__),
+    for path in [Path(__file__), WORKER, COMPILER, Path(policy.__file__), Path(preserved_tasks.__file__), Path(string_policy.__file__), Path(normalize_profile.__file__),
                  *sorted(policy.CASE_ROOT.glob('*'))]:
         if path.is_file():
             digest.update(path.name.encode())
@@ -42,8 +47,8 @@ def profile_hash():
     return digest.hexdigest()
 
 
-def make_request(task_id, source):
-    task = task_by_id(task_id)
+def make_request(task_id, source, *, string_scope=None):
+    task = task_by_id(task_id, string_scope=string_scope)
     checks = policy.validate_source(source, task)
     if not checks['static_policy_passed']:
         raise ValueError('Candidate policy rejected: ' + '; '.join(checks['diagnostics']))
@@ -52,18 +57,25 @@ def make_request(task_id, source):
         'function': task['function'], 'parameters': task['parameters'], 'source': source,
         'vectors': [{'args': vector['args']} for vector in task['tests']],
     }
+    if string_scope is not None:
+        request['string_scope'] = string_scope
     # No expected values, assertions, grading functions or host paths are sent.
     return request
 
 
 def worker_program(request):
-    prefix = ('import ast\nMAX_SOURCE_BYTES=100000\nMAX_AST_NODES=5000\n' +
+    policy.worker_task_contract(request)
+    prefix = ('import ast\nimport hashlib\nMAX_SOURCE_BYTES=100000\nMAX_AST_NODES=5000\n' +
               'PURE_CALLS=' + repr(policy.PURE_CALLS) + '\n' +
               'PURE_METHODS=' + repr(policy.PURE_METHODS) + '\n' +
               'STRING_METHODS=' + repr(policy.STRING_METHODS) + '\n' +
               'STRIP_FUNCTIONS=' + repr(policy.STRIP_FUNCTIONS) + '\n' +
+              'NORMALIZE_SCOPE=' + repr(normalize_profile.SCOPE) + '\n' +
+              'NORMALIZE_HASHES=' + repr(normalize_profile.SOURCE_HASHES) + '\n' +
               'ALLOWED_NODES=' + repr(policy.ALLOWED_NODES) + '\n' +
               inspect.getsource(policy.string_diagnostics) + '\n' +
+              inspect.getsource(policy.scoped_normalize_allowed) + '\n' +
+              inspect.getsource(policy.worker_task_contract) + '\n' +
               inspect.getsource(policy.validate_source) + '\n')
     program = (prefix + WORKER.read_text(encoding='utf-8') + '\nworker_main(' +
                repr(json.dumps(request, allow_nan=False, ensure_ascii=True)) + ')\n')
@@ -230,7 +242,7 @@ def grade_execution(task, request, raw):
         if row['status'] == 'returned':
             value_ok = exact_json_equal(row['value'], vector['expected'])
             args_ok = exact_json_equal(row['args_after'], vector['args'])
-            identity_ok = task['id'] != 'unique_order' or row['new_list']
+            identity_ok = not (task['id'] == 'unique_order' or task.get('require_new_list') is True) or row['new_list']
             outcome.update(status='passed' if value_ok and args_ok and identity_ok else 'failed_assertion',
                            passed=bool(value_ok and args_ok and identity_ok), actual=row['value'],
                            expected=vector['expected'], value_matches=value_ok,
@@ -324,8 +336,8 @@ class FunctionalHarness:
             return {**base, 'status': 'execution_error', 'reason': f'{type(exc).__name__}: {exc}',
                     'isolation': getattr(exc, 'verification', verification), 'failure': getattr(exc, 'failure', None)}
 
-    def run(self, task_id, source):
-        task = task_by_id(task_id)
+    def run(self, task_id, source, *, string_scope=None):
+        task = task_by_id(task_id, string_scope=string_scope)
         checks = policy.validate_source(source, task)
         base = {'task': task_id, 'model_invoked': False, 'live_evaluation_enabled': False,
                 'verification_stages': policy.verification_stages(checks),
@@ -340,7 +352,7 @@ class FunctionalHarness:
                     'isolation': verification}
         raw = None
         try:
-            request = make_request(task_id, source)
+            request = make_request(task_id, source, string_scope=string_scope)
             program = worker_program(request)
             raw = self.backend.run_verified_worker(program)
             base['verification_stages']['compilation'] = {'status': 'unknown', 'passed': None}
