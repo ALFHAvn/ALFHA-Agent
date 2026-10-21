@@ -206,7 +206,7 @@ class WorkflowTests(unittest.TestCase):
         request['authorized_files']['b.py'] = ['delete']
         request['required_changed_files'] = ['b.py']
         report = self.run_replies([response(('delete_file', {'filename': 'b.py'})), response(text='Done')], request)
-        self.assertTrue(report['ready_for_human_review'])
+        self.assertTrue(report['ready_for_human_review'], json.dumps(report, ensure_ascii=True))
         self.assertTrue((self.root / 'b.py').exists())
         self.assertEqual(report['review']['per_file'][1]['status'], 'deleted')
 
