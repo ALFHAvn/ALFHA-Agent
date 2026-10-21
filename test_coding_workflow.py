@@ -64,6 +64,40 @@ class WorkflowTests(unittest.TestCase):
         return response(('edit_file', {'filename': 'a.py', 'old_text': 'A = 1', 'new_text': 'A = 3'}),
                         ('edit_file', {'filename': 'b.py', 'old_text': 'B = 2', 'new_text': 'B = 3'}))
 
+    def test_explicit_comparison_models_preserve_requests_and_source(self):
+        from coding_workflow import EVALUATION_MODELS, MODEL
+        before = _source_snapshot(self.root)
+        requests = []
+        for model in sorted(EVALUATION_MODELS):
+            replies = iter([self.edits(), response(text='Done')])
+            observed = []
+            def chat(**kwargs):
+                self.assertEqual(kwargs['model'], model)
+                import copy
+                observed.append(copy.deepcopy({k: v for k, v in kwargs.items() if k != 'model'}))
+                return next(replies)
+            report = run_task(self.request(), chat_fn=chat, model=model)
+            self.reports.append(Path(report['report_path']))
+            self.assertEqual(report['model'], model)
+            self.assertEqual(report['budget'], 6)
+            self.assertEqual(report['budget_used'], 2)
+            self.assertTrue(report['workspace_discarded'])
+            self.assertTrue(report['ready_for_human_review'])
+            self.assertEqual(before, _source_snapshot(self.root))
+            requests.append(observed)
+        self.assertEqual(requests[0], requests[1])
+        self.assertEqual(requests[1], requests[2])
+        self.assertEqual(MODEL, 'qwen3:4b')
+
+    def test_invalid_comparison_model_rejected_before_chat_or_staging(self):
+        for model in ('remote/model', '', None, [], 'qwen3:8b'):
+            with self.subTest(model=model), patch('coding_workflow.MultiFileTask.prepare') as prepare:
+                chat = unittest.mock.Mock()
+                with self.assertRaises(SafetyError):
+                    run_task(self.request(), chat_fn=chat, model=model)
+                prepare.assert_not_called()
+                chat.assert_not_called()
+
     def test_two_file_workflow_preserves_source_and_durable_diff(self):
         before = _source_snapshot(self.root)
         report = self.run_replies([self.edits(), response(text='Done')])

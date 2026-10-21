@@ -11,6 +11,8 @@ from multi_file_tasks import MultiFileTask
 from coding_protocol import DEFAULT_POLICY, parse_text, available_tools
 
 MODEL = 'qwen3:4b'
+EVALUATION_MODELS = frozenset((MODEL, 'qwen2.5-coder:3b-instruct-q4_K_M',
+                               'qwen2.5-coder:7b-instruct-q4_K_M'))
 MAX_CALLS = 6
 OPERATIONS = {'read', 'modify', 'create', 'delete'}
 SIGNATURES = {'read_file': ('read', ('filename',)),
@@ -101,12 +103,14 @@ def dispatch(task, authorization, name, arguments):
     return json.dumps(task.validate())
 
 
-def run_task(request, *, chat_fn=None):
+def run_task(request, *, chat_fn=None, model=MODEL):
     """Run once; always discard staging, retain a separate durable JSON report.
 
     Supplying no chat_fn uses local Ollama, never a remote OLLAMA_HOST.
     This is code generation only, not authorization to execute candidate code.
     """
+    if not isinstance(model, str) or model not in EVALUATION_MODELS:
+        raise SafetyError('Unsupported evaluation model; use an explicitly selected local comparison tag')
     request = validate_request(request)  # No model/workspace/report before authorization validation.
     files = request['authorized_files']
     policy = copy.deepcopy(request.get('tool_policy', DEFAULT_POLICY))
@@ -126,7 +130,7 @@ def run_task(request, *, chat_fn=None):
         raise SafetyError('Evidence must be outside source repository')
     output = evidence / 'report.json'
     report = {'schema_version': 1, 'run_id': uuid.uuid4().hex, 'started_utc': timestamp(),
-              'request': request, 'model': MODEL, 'budget': MAX_CALLS, 'budget_used': 0,
+              'request': request, 'model': model, 'budget': MAX_CALLS, 'budget_used': 0,
               'native_calls_requested': 0, 'model_requests': 0, 'starting_commit': task.starting_commit,
               'recovered_calls': 0, 'trace': [], 'model_responses': [],
               'status': 'running', 'errors': [], 'incomplete_work': [],
@@ -165,7 +169,7 @@ def run_task(request, *, chat_fn=None):
             save()
             tools, phase = available_tools(TOOLS, SIGNATURES, files, policy, inspected)
             report['phase'] = phase
-            response = chat_fn(model=MODEL, messages=messages, tools=tools, stream=False)
+            response = chat_fn(model=model, messages=messages, tools=tools, stream=False)
             raw = response.model_dump(mode='json')
             report['model_responses'].append(raw)
             report['model_request_pending'] = False

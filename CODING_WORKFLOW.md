@@ -6,6 +6,13 @@ staging API to local `qwen3:4b`. Omit `chat_fn` to explicitly use Ollama at
 module starts nothing. This milestone was tested with injected model responses
 only: no live model coding run or benchmark was performed.
 
+Step 36 adds an explicit `model=` keyword for the three comparison tags in
+`evaluations/LOCAL_MODEL_EVALUATION.md`. The default remains `qwen3:4b`;
+unsupported tags fail before staging or model contact. Model selection changes
+neither prompts nor tools, permissions, budget, or execution policy, and grants
+no download/live-run authorization. See `evaluations/step36_plan.json` for the
+pending data-only comparison plan.
+
 ## Request contract
 
 All four fields below are required. Step 34 adds optional `tool_policy` and

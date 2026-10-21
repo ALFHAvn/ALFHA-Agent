@@ -1,0 +1,84 @@
+{
+  "status": "pending_explicit_download_and_live_approval",
+  "starting_commit": "a3dc094",
+  "attempts_per_model_per_scenario": 1,
+  "tool_budget": 6,
+  "models": [
+    "qwen3:4b",
+    "qwen2.5-coder:3b-instruct-q4_K_M",
+    "qwen2.5-coder:7b-instruct-q4_K_M"
+  ],
+  "chat_options": {
+    "num_ctx": 8192,
+    "temperature": 0,
+    "seed": 36
+  },
+  "candidate_execution": "disabled",
+  "source_application": "unsupported",
+  "scenarios": {
+    "A": {
+      "request_template": {
+        "description": "Fix the missing colon after def add_one(value) in syntax_target.py. Preserve the function name, value parameter, and return value + 1 body. Use actual tools to inspect and edit the authorized file. Do not execute the module or tests. Only read/modify syntax_target.py. Six tool-call attempts total. Static checks only; finish with a concise summary.",
+        "authorized_files": {
+          "syntax_target.py": [
+            "read",
+            "modify"
+          ]
+        },
+        "required_changed_files": [
+          "syntax_target.py"
+        ],
+        "tool_policy": {
+          "inspection_first": true,
+          "single_json_recovery": true
+        },
+        "validation_requirements": {
+          "static": true,
+          "docker_execution": false
+        }
+      },
+      "initial_files": {
+        "syntax_target.py": "def add_one(value)\n    return value + 1\n"
+      },
+      "expected_source": "def add_one(value):\n    return value + 1\n"
+    },
+    "B": {
+      "request_template": {
+        "description": "Update BOTH tag_utils.py and test_tag_utils.py. Implement normalize_tags(tags) for a list of strings: trim surrounding whitespace, lowercase, discard empty normalized tags, remove duplicates preserving first occurrence, return a new list, and do not mutate the input. Keep the function name and tags parameter. Preserve test_returns_new_list and add unittest methods:\n- test_trims_and_lowercases: input [\"  RED \", \"Blue  \"], expected [\"red\", \"blue\"].\n- test_discards_empty: input [\"\", \"   \", \"\\t\"], expected []. The third input is a tab character.\n- test_deduplicates_in_order: input [\"Blue\", \" red \", \"BLUE\", \"Red\", \"green\"], expected [\"blue\", \"red\", \"green\"].\n- test_input_unchanged: input [\" Blue \", \"BLUE\"], compare input with an independent copy after calling normalize_tags.\nUse actual tools to inspect and edit both files. Do not execute the module or tests. Only read/modify the two authorized files. Six tool-call attempts total. Static checks only; finish with a concise summary.",
+        "authorized_files": {
+          "tag_utils.py": [
+            "read",
+            "modify"
+          ],
+          "test_tag_utils.py": [
+            "read",
+            "modify"
+          ]
+        },
+        "validation_requirements": {
+          "static": true,
+          "docker_execution": false
+        },
+        "tool_policy": {
+          "inspection_first": true,
+          "single_json_recovery": true
+        },
+        "required_changed_files": [
+          "tag_utils.py",
+          "test_tag_utils.py"
+        ]
+      },
+      "initial_files": {
+        "tag_utils.py": "def normalize_tags(tags):\n    return list(tags)\n",
+        "test_tag_utils.py": "import unittest\nfrom tag_utils import normalize_tags\n\n\nclass TestNormalizeTags(unittest.TestCase):\n    def test_returns_new_list(self):\n        tags = [\"red\"]\n        self.assertEqual(normalize_tags(tags), [\"red\"])\n        self.assertIsNot(normalize_tags(tags), tags)\n"
+      },
+      "static_acceptance": [
+        "Both files changed; no other path or operation authorized",
+        "Both files pass AST parsing; compilation and functional correctness not tested",
+        "normalize_tags(tags) preserved; inspect strip/lower, empty filtering, stable deduplication, no input mutation",
+        "Existing test_returns_new_list retained; four named tests with prescribed inputs/assertions present",
+        "Original source snapshot unchanged after attempt; staging discarded; diff and trace retained"
+      ]
+    }
+  }
+}
