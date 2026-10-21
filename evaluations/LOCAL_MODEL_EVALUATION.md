@@ -159,3 +159,11 @@ rejection of unsupported model values before staging/chat. No live model
 request, download, generated program/test execution or fresh Docker security
 probe occurred. Runtime benchmark results and resource measurements remain
 pending approval. The regression log is evaluations/runs/step36_regression.log.
+
+## Approved execution results
+
+The subsequently approved six-attempt comparison is complete. See
+[LOCAL_MODEL_RESULTS.md](LOCAL_MODEL_RESULTS.md) for exact downloads, Resource
+Saver diagnosis, all six failures, independent static assessment and retained
+JSON evidence. All six authorized attempts are consumed; this historical plan
+and its pending status are not permission to rerun them.
