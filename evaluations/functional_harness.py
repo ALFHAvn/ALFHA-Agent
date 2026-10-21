@@ -9,6 +9,7 @@ import uuid
 from . import functional_validation as policy
 from .docker_transport import PINNED_IMAGE
 from .execution_backend import DockerExecutionBackend, PROBES, exact_json_equal
+from . import preserved_tasks
 
 WORKER = Path(__file__).with_name('functional_worker.py')
 COMPILER = Path(__file__).with_name('compilation_worker.py')
@@ -26,12 +27,13 @@ def task_by_id(task_id):
     for task in policy.load_tasks():
         if task['id'] == task_id:
             return task
-    raise ValueError('Unknown functional task ID')
+    # Separate fixed profile; canonical five-task/29-vector fixtures are unchanged.
+    return preserved_tasks.preserved_task(task_id)
 
 
 def profile_hash():
     digest = hashlib.sha256()
-    for path in [Path(__file__), WORKER, COMPILER, Path(policy.__file__),
+    for path in [Path(__file__), WORKER, COMPILER, Path(policy.__file__), Path(preserved_tasks.__file__),
                  *sorted(policy.CASE_ROOT.glob('*'))]:
         if path.is_file():
             digest.update(path.name.encode())
