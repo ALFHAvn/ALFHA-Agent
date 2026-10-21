@@ -69,6 +69,12 @@ For BOTH scenarios and ALL models:
 
 ## Proposed execution and approval scope
 
+Before any approved attempt, run the read-only dependency preflight for all
+three tags and preserve its report. Missing dependencies block the comparison;
+do not install, start services, or infer authorization from readiness. Each task
+also checks its selected model and Docker/image in the workflow before staging.
+See DEPENDENCY_PREFLIGHT.md for bounds and infrastructure failure reporting.
+
 Approval is required separately for downloading the two exact candidate tags
 (approximately 6.6 GB combined listed artifacts) and for six live attempts:
 qwen3 A, qwen3 B, coder 3B A, coder 3B B, coder 7B A, coder 7B B, in that order.

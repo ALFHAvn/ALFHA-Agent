@@ -42,6 +42,12 @@ written by the workflow.
 
 ## Controller and tools
 
+The workflow performs a read-only local dependency preflight before staging or
+chat, including with supplied adapters. Ollama API/model and the approved Docker
+engine/image must be ready. Blockers retain a zero-attempt infrastructure report;
+there are no automatic service starts, pulls or retries. See
+`evaluations/DEPENDENCY_PREFLIGHT.md`. Readiness grants no execution permission.
+
 The model receives the task, explicit authorization, and registered read_file,
 edit_file, create_file, delete_file and validate_files interfaces. Every call
 passes strict host-side name, argument-key, string-type, path and operation

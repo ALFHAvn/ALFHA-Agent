@@ -261,9 +261,6 @@ def main(argv=None):
     if not args.authorize_once:
         print('BLOCKED: live evaluation disabled pending a separate isolation-verification review.', flush=True)
         return 2
-    import ollama
-    # Do not inherit an OLLAMA_HOST pointing at a remote service.
-    client = ollama.Client(host='http://127.0.0.1:11434')
     runs = controller.syntax.RUNS
     runs.mkdir(parents=True, exist_ok=True)
     output = runs / ('functional_live_' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ') + '.json')
@@ -271,12 +268,25 @@ def main(argv=None):
     def save(report):
         atomic_write(output, report)
 
+    from .dependency_preflight import check_dependencies
+    dependency_evidence = check_dependencies([controller.syntax.alfha.MODEL])
+    if dependency_evidence['ready'] is not True:
+        save({'status': 'preflight_failed', 'model_invoked': False, 'model_requests': 0,
+              'failure_domain': 'infrastructure', 'dependency_preflight': dependency_evidence,
+              'error': 'Required dependency unavailable; no live attempt started',
+              'authorization': {'state': 'not_granted'}})
+        print(f'Dependency preflight failed; report: {output}', flush=True)
+        return 2
     try:
-        models = client.list().model_dump(mode='json')['models']
-        metadata = next(m for m in models if m['model'] == controller.syntax.alfha.MODEL)
+        import ollama
+        # No inherited remote OLLAMA_HOST, downloads, or automatic service start.
+        client = ollama.Client(host='http://127.0.0.1:11434')
+        metadata = dict(dependency_evidence['checks']['ollama_models'][controller.syntax.alfha.MODEL]['evidence']['inventory'])
         metadata['endpoint'] = 'http://127.0.0.1:11434'
+        metadata['dependency_preflight'] = dependency_evidence
     except Exception as exc:
-        save({'status': 'preflight_failed', 'model_invoked': False, 'error': f'{type(exc).__name__}: {exc}'})
+        save({'status': 'preflight_failed', 'model_invoked': False, 'failure_domain': 'infrastructure',
+              'dependency_preflight': dependency_evidence, 'error': f'{type(exc).__name__}: {exc}'})
         print(f'Model preflight failed; report: {output}', flush=True)
         return 2
     report = run_benchmark(chat_fn=client.chat, harness=FunctionalHarness(), model_metadata=metadata, save=save,

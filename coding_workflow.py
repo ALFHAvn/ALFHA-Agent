@@ -9,6 +9,7 @@ from evaluations.checkpoints import atomic_write, timestamp
 from git_checkpoints import SafetyError, _path
 from multi_file_tasks import MultiFileTask
 from coding_protocol import DEFAULT_POLICY, parse_text, available_tools
+from evaluations.dependency_preflight import check_dependencies
 
 MODEL = 'qwen3:4b'
 EVALUATION_MODELS = frozenset((MODEL, 'qwen2.5-coder:3b-instruct-q4_K_M',
@@ -112,6 +113,30 @@ def run_task(request, *, chat_fn=None, model=MODEL):
     if not isinstance(model, str) or model not in EVALUATION_MODELS:
         raise SafetyError('Unsupported evaluation model; use an explicitly selected local comparison tag')
     request = validate_request(request)  # No model/workspace/report before authorization validation.
+    dependency_evidence = check_dependencies([model])
+    if dependency_evidence.get('ready') is not True:
+        evidence = Path(tempfile.mkdtemp(prefix='alfha-coding-report-')).resolve()
+        if evidence.is_relative_to(Path(request['source_repository']).resolve()):
+            evidence.rmdir()
+            raise SafetyError('Evidence must be outside source repository')
+        output = evidence / 'report.json'
+        report = {'schema_version': 1, 'run_id': uuid.uuid4().hex, 'started_utc': timestamp(),
+                  'completed_utc': timestamp(), 'request': request, 'model': model,
+                  'status': 'preflight_failed', 'failure_domain': 'infrastructure',
+                  'dependency_preflight': dependency_evidence, 'model_invoked': False,
+                  'model_requests': 0, 'budget': MAX_CALLS, 'budget_used': 0,
+                  'native_calls_requested': 0, 'native_dispatch_attempts': 0,
+                  'recovered_calls': 0, 'successful_recoveries': 0, 'correction_prompts': 0,
+                  'trace': [], 'model_responses': [], 'accepted_changes': [],
+                  'rejected_actions': [], 'text_observations': [],
+                  'errors': ['Required dependency unavailable; no staging or model request attempted'],
+                  'incomplete_work': ['Task not attempted because dependency preflight failed'],
+                  'review': None, 'starting_commit': None, 'workspace_created': False,
+                  'workspace_discarded': True, 'candidate_execution': 'disabled',
+                  'application_supported': False, 'ready_for_human_review': False,
+                  'report_path': str(output)}
+        atomic_write(output, report)
+        return report
     files = request['authorized_files']
     policy = copy.deepcopy(request.get('tool_policy', DEFAULT_POLICY))
     required = request.get('required_changed_files', [n for n, ops in files.items() if set(ops) & {'modify', 'create', 'delete'}])
@@ -131,6 +156,7 @@ def run_task(request, *, chat_fn=None, model=MODEL):
     output = evidence / 'report.json'
     report = {'schema_version': 1, 'run_id': uuid.uuid4().hex, 'started_utc': timestamp(),
               'request': request, 'model': model, 'budget': MAX_CALLS, 'budget_used': 0,
+              'dependency_preflight': dependency_evidence, 'failure_domain': None,
               'native_calls_requested': 0, 'model_requests': 0, 'starting_commit': task.starting_commit,
               'recovered_calls': 0, 'trace': [], 'model_responses': [],
               'status': 'running', 'errors': [], 'incomplete_work': [],
@@ -169,7 +195,17 @@ def run_task(request, *, chat_fn=None, model=MODEL):
             save()
             tools, phase = available_tools(TOOLS, SIGNATURES, files, policy, inspected)
             report['phase'] = phase
-            response = chat_fn(model=model, messages=messages, tools=tools, stream=False)
+            try:
+                response = chat_fn(model=model, messages=messages, tools=tools, stream=False)
+            except Exception as exc:
+                import httpx
+                import ollama
+                infrastructure = isinstance(exc, (OSError, TimeoutError, httpx.HTTPError, ollama.ResponseError))
+                report['failure_domain'] = 'infrastructure' if infrastructure else 'model_adapter'
+                report['model_request_failure'] = {'category': 'request_failed',
+                    'exception_type': type(exc).__name__, 'message': str(exc),
+                    'dependency_readiness_is_point_in_time': True}
+                raise
             raw = response.model_dump(mode='json')
             report['model_responses'].append(raw)
             report['model_request_pending'] = False
@@ -290,5 +326,9 @@ def run_task(request, *, chat_fn=None, model=MODEL):
                 report['errors'].append('Cleanup refused/failed: ' + str(exc))
                 report['ready_for_human_review'] = False
             report['completed_utc'] = timestamp()
+            report['model_invoked'] = report['model_requests'] > 0
+            if report['failure_domain'] is None and (report['rejected_actions'] or
+                    report['status'] in ('incomplete', 'budget_exhausted')):
+                report['failure_domain'] = 'model_tool_use_or_completion'
             save()
     return report

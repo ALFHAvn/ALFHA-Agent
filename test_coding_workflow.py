@@ -18,6 +18,10 @@ def response(*calls, text=''):
 
 class WorkflowTests(unittest.TestCase):
     def setUp(self):
+        dependency = patch('coding_workflow.check_dependencies', return_value={
+            'ready': True, 'read_only': True, 'test_double': True})
+        dependency.start()
+        self.addCleanup(dependency.stop)
         self.temp = tempfile.TemporaryDirectory(prefix='alfha-workflow-tests-')
         self.root = Path(self.temp.name).resolve()
         _git(self.root, 'init', '--quiet', '--initial-branch=main', '--template=')
