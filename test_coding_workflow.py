@@ -107,12 +107,12 @@ class WorkflowTests(unittest.TestCase):
             response(('edit_file', {'filename': 'a.py', 'old_text': '1', 'new_text': '9'}),
                      ('read_file', {'filename': '../secret'}),
                      ('delete_file', {'filename': 'b.py'}), ('run_python', {'filename': 'a.py'})),
-            response(text='Stopped')], request)
+            response(text='Stopped'), response(text='Stopped')], request)
         self.assertTrue(all(t['status'] == 'rejected' for t in report['trace']))
         self.assertEqual(report['review']['modified_paths'], [])
 
     def test_fake_json_is_never_executed(self):
-        report = self.run_replies([response(text=json.dumps({'name': 'delete_file', 'arguments': {'filename': 'a.py'}}))])
+        report = self.run_replies([response(text=json.dumps({'name': 'delete_file', 'arguments': {'filename': 'a.py'}})), response(text='Stopped')])
         self.assertEqual(report['budget_used'], 0)
         self.assertEqual(report['recovered_calls'], 0)
         self.assertEqual(report['review']['modified_paths'], [])
@@ -131,7 +131,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertTrue(report['errors'])
 
     def test_failed_static_validation_does_not_claim_success(self):
-        report = self.run_replies([response(('edit_file', {'filename': 'a.py', 'old_text': 'A = 1', 'new_text': 'def broken('})), response(text='Done')])
+        report = self.run_replies([response(('edit_file', {'filename': 'a.py', 'old_text': 'A = 1', 'new_text': 'def broken('})), response(text='Done'), response(text='Done')])
         self.assertFalse(report['review']['validation']['passed'])
         self.assertFalse(report['ready_for_human_review'])
         self.assertEqual(report['review']['compilation'], 'not_run')
@@ -159,13 +159,14 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(report['status'], 'budget_exhausted')
 
     def test_ambiguous_edit_rejected_and_original_preserved(self):
-        report = self.run_replies([response(('edit_file', {'filename': 'a.py', 'old_text': '', 'new_text': 'bad'})), response(text='Done')])
+        report = self.run_replies([response(('edit_file', {'filename': 'a.py', 'old_text': '', 'new_text': 'bad'})), response(text='Done'), response(text='Done')])
         self.assertEqual(report['trace'][0]['status'], 'rejected')
         self.assertEqual(report['review']['modified_paths'], [])
 
     def test_explicit_delete_only_affects_temporary_copy(self):
         request = self.request()
         request['authorized_files']['b.py'] = ['delete']
+        request['required_changed_files'] = ['b.py']
         report = self.run_replies([response(('delete_file', {'filename': 'b.py'})), response(text='Done')], request)
         self.assertTrue(report['ready_for_human_review'])
         self.assertTrue((self.root / 'b.py').exists())
@@ -194,7 +195,7 @@ class WorkflowTests(unittest.TestCase):
         class Malformed:
             def model_dump(self, **kwargs):
                 return {'message': {'role': 'assistant', 'content': '', 'tool_calls': [{'function': 'bad'}]}}
-        report = self.run_replies([Malformed(), response(text='Stopped')])
+        report = self.run_replies([Malformed(), response(text='Stopped'), response(text='Stopped')])
         self.assertEqual(report['budget_used'], 1)
         self.assertEqual(report['trace'][0]['status'], 'rejected')
         self.assertIn('Malformed native', report['trace'][0]['error'])

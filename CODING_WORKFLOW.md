@@ -8,8 +8,9 @@ only: no live model coding run or benchmark was performed.
 
 ## Request contract
 
-All four fields are required; unknown fields and ambiguous operation scopes are
-rejected before contacting a model:
+All four fields below are required. Step 34 adds optional `tool_policy` and
+`required_changed_files`; other unknown fields and ambiguous operation scopes
+are rejected before contacting a model:
 
 ```json
 {
@@ -47,11 +48,29 @@ in full and recorded separately; none of it is dispatched. Exhaustion produces
 an incomplete/budget_exhausted result rather than an invented completion. The
 existing interactive controller and its tools/budget are unchanged.
 
-Printed JSON, code fences and prose are never dispatched. There is no recovery
-parser in this workflow: existing evaluation-specific recovery does not grant
-multi-file authority. Calls requesting execution, Git operations, source apply
-or unsupported tools are rejected. Model response text is untrusted; a claim of
-success is not evidence of an edit or functional correctness.
+Printed arrays, code fences and prose are never dispatched. Recovery is disabled
+by default. A request may explicitly set `tool_policy` to
+`{"inspection_first": true, "single_json_recovery": true}`. Both fields must be
+Boolean. Inspection-first exposes/enforces reads until authorized readable
+modification/deletion targets have been inspected. Recovery permits at most one
+raw JSON object with exactly `name` and `arguments`, only for a read or an exact
+edit of an already inspected file. Full schema, phase, filename and operation
+checks still apply; rejected attempts consume the same six-call budget. Arrays,
+duplicate keys, wrappers, unknown fields and ambiguous edits are never converted
+into actions. Existing evaluation recovery grants no authority here.
+
+Tool visibility is restricted to the authorized operations and filename enums.
+Text-only action proposals and empty responses receive at most one bounded
+correction prompt within the existing response limit, not a fresh task attempt.
+By default all mutable authorized paths must change; callers can explicitly
+narrow that completion requirement with `required_changed_files`, a unique list
+of authorized mutable paths. This does not expand permissions. An ordinary final
+summary cannot complete a task with missing required file changes.
+
+Calls requesting execution, Git operations, source apply or unsupported tools
+are rejected. Model response text is untrusted; a claim of success is not evidence
+of an edit or functional correctness. See `MODEL_TOOL_RELIABILITY.md` for the
+installed SDK/template investigation and Step 34 regression evidence.
 
 ## Validation, review and evidence
 
