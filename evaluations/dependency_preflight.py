@@ -186,8 +186,22 @@ def check_dependencies(models=('qwen3:4b',), *, metadata=ollama_metadata, docker
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model', action='append', help='Required explicit installed tag; repeat at most three times')
+    parser.add_argument('--verify-docker-inventory', action='store_true',
+                        help='Poll engine readiness before one mandatory inventory; grants no execution permission')
+    parser.add_argument('--readiness-timeout', type=float, default=20.0)
     args = parser.parse_args(argv)
+    readiness = None
+    if args.verify_docker_inventory:
+        from .docker_readiness import check_docker_readiness
+        readiness = check_docker_readiness(readiness_timeout=args.readiness_timeout)
+        if not readiness['ready']:
+            print(json.dumps({'ready': False, 'failure_domain': 'infrastructure',
+                              'docker_readiness': readiness, 'model_invoked': False,
+                              'execution_authorized': False, 'isolation_verified': False}, indent=2))
+            return 2
     report = check_dependencies(args.model or ['qwen3:4b'])
+    if readiness is not None:
+        report['docker_readiness'] = readiness
     print(json.dumps(report, indent=2))
     return 0 if report['ready'] else 2
 
