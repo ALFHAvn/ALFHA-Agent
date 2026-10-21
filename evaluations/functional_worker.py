@@ -8,6 +8,26 @@ import json
 import math
 import os
 import sys
+import ast
+
+
+def _guard_string_method(value, method):
+    if builtins.type(value) is not builtins.str:
+        raise TypeError('String receiver must have exact str type')
+    if method == 'strip':
+        return builtins.str.strip(value)
+    if method == 'lower':
+        return builtins.str.lower(value)
+    raise ValueError('Unsupported guarded string method')
+
+
+class _GuardStrings(ast.NodeTransformer):
+    def visit_Call(self, node):
+        node = self.generic_visit(node)
+        if isinstance(node.func, ast.Attribute) and node.func.attr in STRING_METHODS:
+            return ast.copy_location(ast.Call(func=ast.Name(id='__alfha_string_method__', ctx=ast.Load()),
+                args=[node.func.value, ast.Constant(value=node.func.attr)], keywords=[]), node)
+        return node
 
 
 def _plain(value, depth=0, budget=None):
@@ -53,7 +73,8 @@ def worker_main(request_json):
 
     emit({'kind': 'start', 'version': 1, 'request_id': request['request_id'], 'task_id': request['task_id']})
     try:
-        code = compile(request['source'], '<candidate>', 'exec')
+        tree = ast.parse(request['source'])
+        code = compile(ast.fix_missing_locations(_GuardStrings().visit(tree)), '<candidate>', 'exec')
     except BaseException as exc:
         emit({'kind': 'job_error', 'error': type(exc).__name__ + ': ' + str(exc)[:512]})
         return
@@ -64,6 +85,7 @@ def worker_main(request_json):
         emit({'kind': 'vector_start', 'index': index})
         args = json.loads(json.dumps(vector['args'], allow_nan=False))
         namespace = {'__builtins__': safe_builtins.copy()}
+        namespace['__alfha_string_method__'] = _guard_string_method
         row = {'kind': 'vector_result', 'index': index, 'status': 'runtime_error',
                'value': None, 'args_after': None, 'new_list': False, 'error': None}
         try:

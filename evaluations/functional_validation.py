@@ -4,6 +4,10 @@ import json
 import re
 import shutil
 from pathlib import Path
+try:
+    from .string_policy import STRING_METHODS, STRIP_FUNCTIONS, string_diagnostics
+except ImportError:
+    from string_policy import STRING_METHODS, STRIP_FUNCTIONS, string_diagnostics
 
 
 CASE_ROOT = Path(__file__).resolve().parent / 'functional_cases'
@@ -98,6 +102,7 @@ def validate_source(source, task):
     if len(nodes) > MAX_AST_NODES:
         result['diagnostics'].append('AST node limit exceeded')
         return result
+    parents = {child: parent for parent in nodes for child in ast.iter_child_nodes(parent)}
     body = tree.body
     if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
         body = body[1:]
@@ -117,6 +122,7 @@ def validate_source(source, task):
         else:
             result['contract_valid'] = True
     for node in nodes:
+        result['diagnostics'].extend(string_diagnostics(node, parents, task['function']))
         kind = type(node).__name__
         if kind not in ALLOWED_NODES:
             result['diagnostics'].append(f'Unsupported AST node: {kind}')
@@ -126,11 +132,11 @@ def validate_source(source, task):
             result['diagnostics'].append('Top-level return is forbidden; indent it inside the required function')
         if isinstance(node, ast.Name) and node.id.startswith('__'):
             result['diagnostics'].append('Dunder names are forbidden')
-        if isinstance(node, ast.Attribute) and node.attr not in PURE_METHODS:
+        if isinstance(node, ast.Attribute) and node.attr not in PURE_METHODS | STRING_METHODS:
             result['diagnostics'].append(f'Unsupported attribute: {node.attr}')
         if isinstance(node, ast.Call):
             if not ((isinstance(node.func, ast.Name) and node.func.id in PURE_CALLS) or
-                    (isinstance(node.func, ast.Attribute) and node.func.attr in PURE_METHODS)):
+                    (isinstance(node.func, ast.Attribute) and node.func.attr in PURE_METHODS | STRING_METHODS)):
                 result['diagnostics'].append('Unsupported call target')
                 if isinstance(node.func, ast.Name):
                     result['diagnostics'].append('Unsupported call: ' + node.func.id[:80])

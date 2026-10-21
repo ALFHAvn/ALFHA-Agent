@@ -33,7 +33,8 @@ def task_by_id(task_id):
 
 def profile_hash():
     digest = hashlib.sha256()
-    for path in [Path(__file__), WORKER, COMPILER, Path(policy.__file__), Path(preserved_tasks.__file__),
+    from . import string_policy
+    for path in [Path(__file__), WORKER, COMPILER, Path(policy.__file__), Path(preserved_tasks.__file__), Path(string_policy.__file__),
                  *sorted(policy.CASE_ROOT.glob('*'))]:
         if path.is_file():
             digest.update(path.name.encode())
@@ -59,7 +60,10 @@ def worker_program(request):
     prefix = ('import ast\nMAX_SOURCE_BYTES=100000\nMAX_AST_NODES=5000\n' +
               'PURE_CALLS=' + repr(policy.PURE_CALLS) + '\n' +
               'PURE_METHODS=' + repr(policy.PURE_METHODS) + '\n' +
+              'STRING_METHODS=' + repr(policy.STRING_METHODS) + '\n' +
+              'STRIP_FUNCTIONS=' + repr(policy.STRIP_FUNCTIONS) + '\n' +
               'ALLOWED_NODES=' + repr(policy.ALLOWED_NODES) + '\n' +
+              inspect.getsource(policy.string_diagnostics) + '\n' +
               inspect.getsource(policy.validate_source) + '\n')
     program = (prefix + WORKER.read_text(encoding='utf-8') + '\nworker_main(' +
                repr(json.dumps(request, allow_nan=False, ensure_ascii=True)) + ')\n')
