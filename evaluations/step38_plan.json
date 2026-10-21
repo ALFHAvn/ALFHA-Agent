@@ -1,0 +1,521 @@
+{
+  "status": "pending_explicit_live_approval",
+  "preparation_commit": "416f47b",
+  "baseline_plan_sha256": "445a6976968a114070c2868c4c0d51c1b9b63e12feced73fba22704e75766192",
+  "models": [
+    "qwen3:4b",
+    "qwen2.5-coder:3b-instruct-q4_K_M",
+    "qwen2.5-coder:7b-instruct-q4_K_M"
+  ],
+  "attempts": 6,
+  "attempts_per_model_per_scenario": 1,
+  "controller": {
+    "operation_budget": 6,
+    "responses_per_attempt": 1,
+    "automatic_retries": 0,
+    "corrective_prompts": 0,
+    "native_tools": false,
+    "text_recovery": false,
+    "atomic_batch_validation": true,
+    "max_response_bytes": 65536,
+    "request_timeout_seconds": 180,
+    "candidate_execution": "disabled",
+    "source_application": "unsupported",
+    "approval_is_not_execution_capability": true
+  },
+  "scenarios": {
+    "A": {
+      "request_template": {
+        "description": "Fix the missing colon after def add_one(value) in syntax_target.py. Preserve the function name, value parameter, and return value + 1 body.",
+        "authorized_files": {
+          "syntax_target.py": [
+            "read",
+            "modify"
+          ]
+        },
+        "required_changed_files": [
+          "syntax_target.py"
+        ],
+        "validation_requirements": {
+          "static": true,
+          "docker_execution": false
+        }
+      },
+      "initial_files": {
+        "syntax_target.py": "def add_one(value)\n    return value + 1\n"
+      },
+      "file_sha256": {
+        "syntax_target.py": "ee948ce47e760da9e14ee8f21b1f2143fadc50ba2b4005b95b603bc99853a9a0"
+      },
+      "acceptance": [
+        "syntax_target.py changed to exactly the baseline expected_source",
+        "AST parsing passes; original signature and body preserved",
+        "Source unchanged, staging discarded, diff and trace retained"
+      ],
+      "expected_source": "def add_one(value):\n    return value + 1\n"
+    },
+    "B": {
+      "request_template": {
+        "description": "Update BOTH tag_utils.py and test_tag_utils.py. Implement normalize_tags(tags) for a list of strings: trim surrounding whitespace, lowercase, discard empty normalized tags, remove duplicates preserving first occurrence, return a new list, and do not mutate the input. Keep the function name and tags parameter. Preserve test_returns_new_list and add unittest methods:\n- test_trims_and_lowercases: input [\"  RED \", \"Blue  \"], expected [\"red\", \"blue\"].\n- test_discards_empty: input [\"\", \"   \", \"\\t\"], expected []. The third input is a tab character.\n- test_deduplicates_in_order: input [\"Blue\", \" red \", \"BLUE\", \"Red\", \"green\"], expected [\"blue\", \"red\", \"green\"].\n- test_input_unchanged: input [\" Blue \", \"BLUE\"], compare input with an independent copy after calling normalize_tags.",
+        "authorized_files": {
+          "tag_utils.py": [
+            "read",
+            "modify"
+          ],
+          "test_tag_utils.py": [
+            "read",
+            "modify"
+          ]
+        },
+        "validation_requirements": {
+          "static": true,
+          "docker_execution": false
+        },
+        "required_changed_files": [
+          "tag_utils.py",
+          "test_tag_utils.py"
+        ]
+      },
+      "initial_files": {
+        "tag_utils.py": "def normalize_tags(tags):\n    return list(tags)\n",
+        "test_tag_utils.py": "import unittest\nfrom tag_utils import normalize_tags\n\n\nclass TestNormalizeTags(unittest.TestCase):\n    def test_returns_new_list(self):\n        tags = [\"red\"]\n        self.assertEqual(normalize_tags(tags), [\"red\"])\n        self.assertIsNot(normalize_tags(tags), tags)\n"
+      },
+      "file_sha256": {
+        "tag_utils.py": "a676ad9e8c00cc4d8d370ccacf21c20c1e235af9abe6135c708ef05c4008feab",
+        "test_tag_utils.py": "da48d8df5d8543049f2952ebd7e526981e743ad4e7e759f3d9b32adea4ae7697"
+      },
+      "acceptance": [
+        "Both files changed; no other path or operation authorized",
+        "Both files pass AST parsing; compilation and functional correctness not tested",
+        "normalize_tags(tags) preserved; inspect strip/lower, empty filtering, stable deduplication, no input mutation",
+        "Existing test_returns_new_list retained; four named tests with prescribed inputs/assertions present",
+        "Original source snapshot unchanged after attempt; staging discarded; diff and trace retained"
+      ]
+    }
+  },
+  "model_requests": [
+    {
+      "scenario": "A",
+      "payload": {
+        "model": "qwen3:4b",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix the missing colon after def add_one(value) in syntax_target.py. Preserve the function name, value parameter, and return value + 1 body.\",\n  \"authorized_files\": {\n    \"syntax_target.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"syntax_target.py\": \"def add_one(value)\\n    return value + 1\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "syntax_target.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "options": {
+          "num_ctx": 8192,
+          "temperature": 0,
+          "seed": 36
+        },
+        "stream": false
+      }
+    },
+    {
+      "scenario": "B",
+      "payload": {
+        "model": "qwen3:4b",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Update BOTH tag_utils.py and test_tag_utils.py. Implement normalize_tags(tags) for a list of strings: trim surrounding whitespace, lowercase, discard empty normalized tags, remove duplicates preserving first occurrence, return a new list, and do not mutate the input. Keep the function name and tags parameter. Preserve test_returns_new_list and add unittest methods:\\n- test_trims_and_lowercases: input [\\\"  RED \\\", \\\"Blue  \\\"], expected [\\\"red\\\", \\\"blue\\\"].\\n- test_discards_empty: input [\\\"\\\", \\\"   \\\", \\\"\\\\t\\\"], expected []. The third input is a tab character.\\n- test_deduplicates_in_order: input [\\\"Blue\\\", \\\" red \\\", \\\"BLUE\\\", \\\"Red\\\", \\\"green\\\"], expected [\\\"blue\\\", \\\"red\\\", \\\"green\\\"].\\n- test_input_unchanged: input [\\\" Blue \\\", \\\"BLUE\\\"], compare input with an independent copy after calling normalize_tags.\",\n  \"authorized_files\": {\n    \"tag_utils.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_tag_utils.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"tag_utils.py\": \"def normalize_tags(tags):\\n    return list(tags)\\n\",\n    \"test_tag_utils.py\": \"import unittest\\nfrom tag_utils import normalize_tags\\n\\n\\nclass TestNormalizeTags(unittest.TestCase):\\n    def test_returns_new_list(self):\\n        tags = [\\\"red\\\"]\\n        self.assertEqual(normalize_tags(tags), [\\\"red\\\"])\\n        self.assertIsNot(normalize_tags(tags), tags)\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "tag_utils.py",
+                      "test_tag_utils.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "options": {
+          "num_ctx": 8192,
+          "temperature": 0,
+          "seed": 36
+        },
+        "stream": false
+      }
+    },
+    {
+      "scenario": "A",
+      "payload": {
+        "model": "qwen2.5-coder:3b-instruct-q4_K_M",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix the missing colon after def add_one(value) in syntax_target.py. Preserve the function name, value parameter, and return value + 1 body.\",\n  \"authorized_files\": {\n    \"syntax_target.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"syntax_target.py\": \"def add_one(value)\\n    return value + 1\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "syntax_target.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "options": {
+          "num_ctx": 8192,
+          "temperature": 0,
+          "seed": 36
+        },
+        "stream": false
+      }
+    },
+    {
+      "scenario": "B",
+      "payload": {
+        "model": "qwen2.5-coder:3b-instruct-q4_K_M",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Update BOTH tag_utils.py and test_tag_utils.py. Implement normalize_tags(tags) for a list of strings: trim surrounding whitespace, lowercase, discard empty normalized tags, remove duplicates preserving first occurrence, return a new list, and do not mutate the input. Keep the function name and tags parameter. Preserve test_returns_new_list and add unittest methods:\\n- test_trims_and_lowercases: input [\\\"  RED \\\", \\\"Blue  \\\"], expected [\\\"red\\\", \\\"blue\\\"].\\n- test_discards_empty: input [\\\"\\\", \\\"   \\\", \\\"\\\\t\\\"], expected []. The third input is a tab character.\\n- test_deduplicates_in_order: input [\\\"Blue\\\", \\\" red \\\", \\\"BLUE\\\", \\\"Red\\\", \\\"green\\\"], expected [\\\"blue\\\", \\\"red\\\", \\\"green\\\"].\\n- test_input_unchanged: input [\\\" Blue \\\", \\\"BLUE\\\"], compare input with an independent copy after calling normalize_tags.\",\n  \"authorized_files\": {\n    \"tag_utils.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_tag_utils.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"tag_utils.py\": \"def normalize_tags(tags):\\n    return list(tags)\\n\",\n    \"test_tag_utils.py\": \"import unittest\\nfrom tag_utils import normalize_tags\\n\\n\\nclass TestNormalizeTags(unittest.TestCase):\\n    def test_returns_new_list(self):\\n        tags = [\\\"red\\\"]\\n        self.assertEqual(normalize_tags(tags), [\\\"red\\\"])\\n        self.assertIsNot(normalize_tags(tags), tags)\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "tag_utils.py",
+                      "test_tag_utils.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "options": {
+          "num_ctx": 8192,
+          "temperature": 0,
+          "seed": 36
+        },
+        "stream": false
+      }
+    },
+    {
+      "scenario": "A",
+      "payload": {
+        "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix the missing colon after def add_one(value) in syntax_target.py. Preserve the function name, value parameter, and return value + 1 body.\",\n  \"authorized_files\": {\n    \"syntax_target.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"syntax_target.py\": \"def add_one(value)\\n    return value + 1\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "syntax_target.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "options": {
+          "num_ctx": 8192,
+          "temperature": 0,
+          "seed": 36
+        },
+        "stream": false
+      }
+    },
+    {
+      "scenario": "B",
+      "payload": {
+        "model": "qwen2.5-coder:7b-instruct-q4_K_M",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return exactly one raw JSON document matching the supplied JSON schema. No prose, Markdown, native tool calls or extra fields. Use version 1 and changes. Each change must use operation replace_text, an exact authorized filename, old_text copied exactly from the supplied file (one match), and new_text. JSON newline escapes must decode to real newlines. At most six operations total; at most one replacement per file. To coordinate several changes in a file, replace one larger exact region. Only read and modify the supplied authorized files. No creation, deletion or execution. All changes are validated together before any edit; invalid batches are rejected. There is one response only, with no correction or retry. Changes remain review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Update BOTH tag_utils.py and test_tag_utils.py. Implement normalize_tags(tags) for a list of strings: trim surrounding whitespace, lowercase, discard empty normalized tags, remove duplicates preserving first occurrence, return a new list, and do not mutate the input. Keep the function name and tags parameter. Preserve test_returns_new_list and add unittest methods:\\n- test_trims_and_lowercases: input [\\\"  RED \\\", \\\"Blue  \\\"], expected [\\\"red\\\", \\\"blue\\\"].\\n- test_discards_empty: input [\\\"\\\", \\\"   \\\", \\\"\\\\t\\\"], expected []. The third input is a tab character.\\n- test_deduplicates_in_order: input [\\\"Blue\\\", \\\" red \\\", \\\"BLUE\\\", \\\"Red\\\", \\\"green\\\"], expected [\\\"blue\\\", \\\"red\\\", \\\"green\\\"].\\n- test_input_unchanged: input [\\\" Blue \\\", \\\"BLUE\\\"], compare input with an independent copy after calling normalize_tags.\",\n  \"authorized_files\": {\n    \"tag_utils.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_tag_utils.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"tag_utils.py\": \"def normalize_tags(tags):\\n    return list(tags)\\n\",\n    \"test_tag_utils.py\": \"import unittest\\nfrom tag_utils import normalize_tags\\n\\n\\nclass TestNormalizeTags(unittest.TestCase):\\n    def test_returns_new_list(self):\\n        tags = [\\\"red\\\"]\\n        self.assertEqual(normalize_tags(tags), [\\\"red\\\"])\\n        self.assertIsNot(normalize_tags(tags), tags)\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "tag_utils.py",
+                      "test_tag_utils.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "options": {
+          "num_ctx": 8192,
+          "temperature": 0,
+          "seed": 36
+        },
+        "stream": false
+      }
+    }
+  ]
+}
