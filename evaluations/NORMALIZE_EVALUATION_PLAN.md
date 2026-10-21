@@ -149,3 +149,44 @@ reports cannot resume execution. Interactive code, default model, six-call
 budget, original task fixtures, image/security restrictions and source-application
 permissions remain unchanged. Historical unrelated runtime and staging anomalies
 are not explained by this passing preflight.
+
+## Approved Step 41 execution — 2026-10-22
+
+The separately approved one-shot invocation completed all three preserved jobs,
+with no retries or new model requests. Fresh bounded readiness, the pinned image,
+all 11 mandatory real isolation probes, and pre/post-job runtime verification
+passed. All 36 vectors executed exclusively through the existing Docker worker.
+
+| Preserved candidate | Functional vectors | Entire candidate |
+| --- | --- | --- |
+| qwen3:4b | 12/12 | Passed |
+| qwen2.5-coder:3b-instruct-q4_K_M | 7/12 | Failed |
+| qwen2.5-coder:7b-instruct-q4_K_M | 7/12 | Failed |
+
+Total: 26/36 vectors, one of three candidates passed all required vectors;
+zero unexecuted vectors. All three passed scoped policy and Docker compilation.
+No policy rejection, runtime error, timeout, transport error or isolation failure
+was recorded. Every executed vector preserved its input and returned a fresh list.
+
+Coder 3B uses a set and failed ordered results on one-based vectors 2, 4, 8, 9
+and 11. Its actual order was retained without rerunning or changing the hash seed.
+Coder 7B omits deduplication and failed vectors 4, 5, 9, 10 and 12.
+These are functional assertion failures, not infrastructure failures.
+Qwen3 satisfied all twelve fixed checks; this small preserved sample does not
+establish general coding reliability. Historical static results remain unchanged.
+
+Complete source identities, fixed expected values, raw worker frames, host-side
+per-vector decisions, probe evidence, runtime checks, cleanup and authorization
+expiry are preserved in ignored `runs/step41_functional_results.json`.
+The in-process authorization expired in the invocation's finally block, and its
+probe capability was invalidated. Default scoped task lookup remains disabled.
+The immediate final mandatory inventory was verified and empty. No candidate,
+expected output, original fixture, Docker restriction or source repository changed.
+
+Post-execution validation: **386/386 regressions passed** in 534.781 seconds.
+`runs/step41_post_execution_regression.json` and its log retain the actual suite
+results. `runs/step41_execution_closure.json` confirms expired authorization,
+default-disabled scope, unchanged approved plan/snapshots and original source,
+no temporary editing staging, and a fresh definitive empty Docker inventory.
+Only documentation changed in this completion stage; complete generated reports
+remain local under ignored runs storage.
