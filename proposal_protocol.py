@@ -15,6 +15,52 @@ MAX_OPERATIONS = 6
 MAX_RESPONSE_BYTES = 65536
 
 
+class ProposalValidationError(SafetyError):
+    """Compatible safety rejection with machine-readable corrective feedback."""
+    def __init__(self, diagnostic):
+        self.diagnostic = diagnostic
+        super().__init__(diagnostic['message'])
+
+
+def proposal_messages(request, contents):
+    """Versioned future instructions; never rewrites frozen benchmark payloads.
+
+    This creates data only. It grants no model calls, retries, or execution.
+    """
+    request = validate_request(request)
+    proposal_schema(request)
+    if (set(contents) != set(request['authorized_files']) or
+            any(type(text) is not str for text in contents.values()) or
+            any('read' not in ops for ops in request['authorized_files'].values())):
+        raise SafetyError('Provide exact authorized readable file contents only')
+    system = (
+        'Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded '
+        'string or an array. Each change has exactly operation="replace_text", filename, '
+        'old_text and new_text. Use only authorized existing paths and at most six '
+        'operations, one replacement per file. Copy old_text from DECODED source text; '
+        'it must match exactly once. Encode the response as JSON once. '
+        'For two source lines, the correct JSON string is ' + json.dumps('first\nsecond') +
+        '; it decodes to one actual newline. The different JSON string ' + json.dumps(r'first\nsecond') +
+        ' decodes to literal backslash+n and will not match multiline source. '
+        'Do not copy the escaped JSON display as literal source. Preserve indentation and '
+        'trailing newlines. Never assume the controller will unescape or repair text. '
+        'Complete every required file change and every requested test assertion. '
+        'Preserve assertion operators, variable names, existing tests and required order. '
+        'Object identity requires "assert result is not values"; "result != values" '
+        'compares contents and is not equivalent. Do not weaken or substitute assertions. '
+        'No prose, Markdown, tools, extra fields, creation, deletion or execution. '
+        'All edits are prevalidated together; ambiguous or invalid batches write nothing. '
+        'There is no automatic correction or retry. Static acceptance does not prove '
+        'functional correctness. Changes remain isolated and review-only.'
+    )
+    context = {'task': request['description'], 'authorized_files': request['authorized_files'],
+               'required_changed_files': request.get('required_changed_files',
+                   [name for name, ops in request['authorized_files'].items() if 'modify' in ops]),
+               'initial_files': contents}
+    return [{'role': 'system', 'content': system},
+            {'role': 'user', 'content': json.dumps(context, ensure_ascii=True, indent=2)}]
+
+
 def proposal_schema(request):
     """Exact-path schema for a future reviewed adapter; grants no authority."""
     request = validate_request(request)
@@ -87,7 +133,20 @@ def validate_changes(changes, authorization, contents):
             raise SafetyError('old_text must be nonempty and replacement must change it')
         count = contents[name].count(old)
         if count != 1:
-            raise SafetyError(f'Exact replacement requires one match; found {count}; use actual newlines and unique context')
+            literal = '\\n' in old
+            message = f'{name}: old_text exact replacement requires one match; found {count}. '
+            if count > 1:
+                message += 'Ambiguous replacement; copy a larger unique region. Nothing was applied.'
+            elif literal:
+                message += ('old_text contains literal backslash+n. JSON "\\n" decodes to a newline; '
+                            'JSON "\\\\n" decodes to backslash+n. Use actual newlines: copy decoded source and encode '
+                            'the response once; no unescaping or repair is performed.')
+            else:
+                message += 'Copy the exact decoded source, including indentation and newlines; nothing was applied.'
+            raise ProposalValidationError({'code': 'ambiguous_replacement' if count > 1 else 'replacement_not_found',
+                'filename': name, 'field': 'old_text', 'match_count': count,
+                'literal_backslash_n': literal, 'actual_newline_count': old.count('\n'),
+                'message': message})
         result = contents[name].replace(old, new, 1)
         encoded = result.encode('utf-8')
         if len(encoded) > MAX_FILE_BYTES:
@@ -179,6 +238,8 @@ def run_proposals(request, responses):
                 prepared = validate_changes(changes, authorization, contents)
             except (SafetyError, OSError, UnicodeError, KeyError) as exc:
                 event.update(status='rejected', error=str(exc))
+                if isinstance(exc, ProposalValidationError):
+                    event['diagnostic'] = copy.deepcopy(exc.diagnostic)
                 save()
                 if task.report().get('integrity') == 'rejected' or task.report().get('stale'):
                     report['status'] = 'integrity_or_stale_failure'

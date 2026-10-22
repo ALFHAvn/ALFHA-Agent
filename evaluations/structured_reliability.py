@@ -13,6 +13,7 @@ from .functional_validation import validate_source
 from .docker_transport import PINNED_IMAGE
 from .execution_backend import ContainerPolicy
 from .checkpoints import atomic_write
+from .contract_diagnostics import test_contract
 
 FIXTURES = Path(__file__).with_name('reliability_tasks.json')
 
@@ -79,13 +80,29 @@ def static_assessment(task, files):
         ast.dump(functions[0].args) == ast.dump(ast.parse(task['reference_source']).body[0].args))
     if 'exact_source' in task:
         checks['exact_repair'] = files.get(task['module']) == task['exact_source']
+    contract_report = {'status': 'not_required', 'passed': None, 'diagnostics': []}
     if task.get('test_file'):
         tree = trees.get(task['test_file'])
         # Require the entire trusted test AST: preserves existing assertions and
         # excludes skips, decorators, shadowing, and misleading extra top-level code.
         checks['test_contract'] = bool(tree and ast.dump(tree) == ast.dump(ast.parse(task['expected_test_source'])))
+        contract_report = test_contract(task['expected_test_source'], files.get(task['test_file']), task['test_file'])
     checks['only_authorized_files'] = set(files) == set(task['initial_files'])
+    implementation_checks = {key: value for key, value in checks.items()
+                             if key in ('signature', 'exact_repair', 'only_authorized_files',
+                                        'ast:' + task['module'], 'changed:' + task['module'])}
+    diagnostics = list(contract_report['diagnostics'])
+    for name in task['initial_files']:
+        if not checks['changed:' + name]:
+            diagnostics.append({'code': 'required_file_unchanged', 'filename': name,
+                                'message': f'{name}: a change is required; this file is missing or unchanged.'})
+        if not checks['ast:' + name]:
+            diagnostics.append({'code': 'source_parse_failed', 'filename': name,
+                                'message': f'{name}: AST parsing failed or source is missing.'})
     return {'checks': checks, 'completed': all(checks.values()),
+            'implementation_static': {'passed': all(implementation_checks.values()), 'checks': implementation_checks,
+                                      'functional_correctness': 'not_tested'},
+            'generated_test_contract': contract_report, 'diagnostics': diagnostics,
             'semantic_correctness': 'not_established_by_static_checks'}
 
 
@@ -109,6 +126,8 @@ def assess_response(task_id, source, response):
     after = _source_snapshot(source)
     integrity = before == after and staged['workspace_discarded'] is True
     static = static_assessment(task, staged.get('final_files', {}))
+    feedback = [e.get('diagnostic', {'code': 'proposal_rejected', 'message': e.get('error', 'Rejected proposal')})
+                for e in staged['events'] if e['status'] == 'rejected'] + static['diagnostics']
     report = {'task': task_id, 'plan_sha256': digest(plan), 'fixture_sha256': task['fixture_sha256'],
         'elapsed_assessment_seconds': time.monotonic() - started,
         'model_response_seconds': None, 'model_invoked': False,
@@ -119,6 +138,7 @@ def assess_response(task_id, source, response):
         'errors': staged['errors'], 'staging_status': staged['status'],
         'source_unchanged': before == after, 'cleanup_verified': staged['workspace_discarded'],
         'static': static, 'static_task_completed': bool(static['completed'] and integrity and staged['ready_for_human_review']),
+        'feedback': feedback, 'feedback_delivered_to_model': False,
         'functional': {'status': 'not_run', 'passed': None, 'executed': 0,
                        'planned': len(task['functional_profile']['tests'])}, 'staging': staged}
     output = Path(staged['report_path']).with_name('assessment.json')
