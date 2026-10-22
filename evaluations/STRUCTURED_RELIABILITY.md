@@ -222,3 +222,58 @@ execution/source application remain disabled; no interactive/default-model,
 fixture, controller, operation-budget or Docker-policy implementation changed.
 The proposed nine-job review is still pending separate approval. Only these
 validated results and the scope/hash table are committed in this completion.
+
+## Separately approved functional evaluation — 2026-10-23
+
+Exactly nine approved origin-specific implementation jobs executed once each,
+without retries or model requests. All eleven fresh mandatory real behavioral
+isolation probes passed before the first candidate. Current source/profile,
+manifest/snapshot hashes, pinned-image identity and the unchanged resource/security
+policy were verified. Each job retained before/after runtime verification and
+verified container absence; the post-run inventory was definitive and empty.
+Generation sources, candidates, expected vectors, fixtures and security policy
+were not edited. Execution authorization expired on completion and the in-process
+harness capability was invalidated. No persistent execution gate was enabled.
+
+| Task | Round 1 | Round 2 | Round 3 | Functional total | Earlier static tasks |
+| --- | --- | --- | --- | --- | --- |
+| syntax | 6/6 | 6/6 | 6/6 | 18/18 | 3/3 |
+| even_sum | 5/5 | 5/5 | 5/5 | 15/15 | 3/3 |
+| stable_unique | 5/5 | 5/5 | 5/5 | 15/15 | 0/3 |
+| bounds | Excluded | Excluded | Excluded | Not executed | 0/3 |
+
+**9/9 approved jobs and 48/48 approved vectors passed.** No approved vectors or
+jobs were unexecuted. Zero policy rejections, compilation failures, runtime
+errors, timeouts, malformed results, failed assertions or mandatory isolation/
+cleanup failures were observed. No generated Python or tests ran on Windows;
+only implementation modules ran in Docker. Expected outcomes stayed host-side.
+The 21 clamping vectors remain outside this approval and were not executed.
+
+Functional correctness on these vectors does not override static test-file
+requirements: stable_unique implementations passed ordered deduplication, input
+preservation and new-list identity checks, but the three generated test files
+still use the wrong inequality assertion. Historical static completion remains
+**6/12** and is not replaced by the selected-subset 9/9 implementation score.
+No rejected clamping proposal was repaired or reconstructed for execution.
+There are only three distinct implementation hashes, repeated across rounds;
+these results do not establish general coding reliability or nine independent
+successful coding samples.
+
+Complete per-vector actual/expected host grades, policy and compilation stages,
+raw worker frames/stdout/stderr, exit/timeout/cleanup status and fresh security
+probe/runtime evidence: `runs/step42_functional_results.json`.
+`runs/step42_functional_comparison.json` maps each of the twelve generation
+attempts to its unchanged static outcome and the nine approved functional grades.
+The original generation and candidate-review reports remain byte-identical.
+
+Post-functional validation: **408/408 regressions passed** in 556.235 seconds.
+`runs/step42_post_functional_regression_evidence.json` and its log retain actual
+outcomes. `runs/step42_functional_closure.json` confirms expired execution
+authorization, default-disabled live execution, all twelve preserved snapshot
+hashes, unchanged generation report/review/plan/profile and source repositories,
+no temporary editing staging, and a fresh definitive empty container inventory.
+No model requests or additional candidate jobs ran during reporting/closure.
+Only validated documentation changes are committed; generated reports remain
+local and ignored. The historical verification anomaly remains unexplained;
+this successful controlled run is not a root-cause resolution or general proof
+of coding competence.
