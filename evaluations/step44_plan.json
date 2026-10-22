@@ -1,0 +1,702 @@
+{
+  "schema_version": 1,
+  "status": "pending_separate_generation_approval",
+  "preparation_base_commit": "f9c9779",
+  "model": "qwen3:4b",
+  "prompt_intervention": "system_message_only",
+  "baseline_plan_sha256": "ccd1ff8ad3535533326e7f46e716ff2155cab4426f353aca9bc8b94bd9fed7bc",
+  "instruction_builder_sha256": "358997ae75e030daa45a86c5727af399b18080b06f6f6b61401e691af46888ca",
+  "validation_sources_sha256": {
+    "proposal_protocol.py": "cf6064151942fafa19c7ea3e171f597bd27e266afd787d0338d5f2e7a86fe3e3",
+    "evaluations/structured_reliability.py": "31ce357dd053785e4844072e489b1ee2fbccea7f8f77e6d510be28e18d903fb9",
+    "evaluations/contract_diagnostics.py": "58e8b45a4676d0e7afe8da188183edfe22cc512679b542e6b96f8dc0731d0559"
+  },
+  "protocol_version": "explicit-replacements-v1",
+  "prompt_version": "step43-structured-instructions-v1",
+  "controller": {
+    "operation_budget": 6,
+    "responses_per_attempt": 1,
+    "retries": 0,
+    "native_tools": false,
+    "text_recovery": false,
+    "timeout_seconds": 180
+  },
+  "maximum_generation_requests": 6,
+  "generation_authorized": false,
+  "candidate_execution_authorized": false,
+  "generated_test_execution": false,
+  "source_application": false,
+  "tasks": [
+    {
+      "id": "bounds",
+      "functional_task": "clamp",
+      "module": "clamp.py",
+      "initial_files": {
+        "clamp.py": "def clamp(value, lower, upper):\n    return value\n",
+        "test_clamp.py": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n"
+      },
+      "reference_source": "def clamp(value, lower, upper):\n    return max(lower, min(value, upper))\n",
+      "description": "Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.",
+      "test_file": "test_clamp.py",
+      "expected_test_source": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n\ndef test_edges():\n    assert clamp(-1, 0, 10) == 0\n    assert clamp(11, 0, 10) == 10\n    assert clamp(0, 0, 10) == 0\n    assert clamp(10, 0, 10) == 10\n    assert clamp(7, 3, 3) == 3\n",
+      "functional_profile": {
+        "id": "clamp",
+        "filename": "clamp.py",
+        "function": "clamp",
+        "parameters": [
+          "value",
+          "lower",
+          "upper"
+        ],
+        "instruction": "Fix clamp(value, lower, upper) to return lower below the interval, upper above it, or value inside it. Inputs are integers with lower <= upper; boundaries are inclusive.",
+        "tests": [
+          {
+            "args": [
+              5,
+              0,
+              10
+            ],
+            "expected": 5
+          },
+          {
+            "args": [
+              -1,
+              0,
+              10
+            ],
+            "expected": 0
+          },
+          {
+            "args": [
+              11,
+              0,
+              10
+            ],
+            "expected": 10
+          },
+          {
+            "args": [
+              0,
+              0,
+              10
+            ],
+            "expected": 0
+          },
+          {
+            "args": [
+              10,
+              0,
+              10
+            ],
+            "expected": 10
+          },
+          {
+            "args": [
+              7,
+              3,
+              3
+            ],
+            "expected": 3
+          },
+          {
+            "args": [
+              -5,
+              -10,
+              -2
+            ],
+            "expected": -5
+          }
+        ]
+      },
+      "fixture_sha256": "da222e96c360e02928fe23c1beb72ed7d6cdf012dc78f5cb658f7690cb01570e"
+    },
+    {
+      "id": "stable_unique",
+      "functional_task": "unique_order",
+      "module": "unique_order.py",
+      "initial_files": {
+        "unique_order.py": "def unique_order(numbers):\n    return list(numbers)\n",
+        "test_unique_order.py": "from unique_order import unique_order\n\ndef test_empty():\n    assert unique_order([]) == []\n"
+      },
+      "reference_source": "def unique_order(numbers):\n    result = []\n    for number in numbers:\n        if number not in result:\n            result.append(number)\n    return result\n",
+      "description": "Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.",
+      "test_file": "test_unique_order.py",
+      "expected_test_source": "from unique_order import unique_order\n\ndef test_empty():\n    assert unique_order([]) == []\n\ndef test_order():\n    assert unique_order([3, 1, 3, 2, 1]) == [3, 1, 2]\n    assert unique_order([-1, 0, -1, 2, 0]) == [-1, 0, 2]\n\ndef test_input():\n    values = [5, 5, 5]\n    result = unique_order(values)\n    assert result == [5]\n    assert values == [5, 5, 5]\n    assert result is not values\n",
+      "functional_profile": {
+        "id": "unique_order",
+        "filename": "unique_order.py",
+        "function": "unique_order",
+        "parameters": [
+          "numbers"
+        ],
+        "instruction": "Fix unique_order(numbers) to return each integer once, preserving the order of first appearance. Return a new list and do not mutate the input.",
+        "tests": [
+          {
+            "args": [
+              []
+            ],
+            "expected": []
+          },
+          {
+            "args": [
+              [
+                3,
+                1,
+                3,
+                2,
+                1
+              ]
+            ],
+            "expected": [
+              3,
+              1,
+              2
+            ]
+          },
+          {
+            "args": [
+              [
+                -1,
+                0,
+                -1,
+                2,
+                0
+              ]
+            ],
+            "expected": [
+              -1,
+              0,
+              2
+            ]
+          },
+          {
+            "args": [
+              [
+                5,
+                5,
+                5
+              ]
+            ],
+            "expected": [
+              5
+            ]
+          },
+          {
+            "args": [
+              [
+                4,
+                2,
+                9
+              ]
+            ],
+            "expected": [
+              4,
+              2,
+              9
+            ]
+          }
+        ]
+      },
+      "fixture_sha256": "f19fccbd945464fb225860b10aee24f4f0081265c70931c21100f1610b5e8556"
+    }
+  ],
+  "attempts": [
+    {
+      "attempt_id": "step44-r1-bounds",
+      "round": 1,
+      "task": "bounds",
+      "baseline_attempt_id": "r1-bounds",
+      "prompt_version": "step43-structured-instructions-v1",
+      "request_version": "step44-focused-v1",
+      "baseline_payload_sha256": "0c137e5a5143b4fe96f56927a0dbca0d7dcf13e82681c358dca4f14ed19ee4ce",
+      "payload_sha256": "3a81a34d23cbc6d400e41accd3ea34bfdb901a9bd6e682e0dd4e7929abaa1e7d",
+      "system_prompt_sha256": "925d2207b4923bd9e374fd4be115cade6bd41756d643eb86568ae141211aed95",
+      "user_message_sha256": "9a07c45f6ff2e458cad99a0ca9e58a984898db0684e6f35a11bfebf464aed8a9",
+      "schema_sha256": "18b66768c42dfd27fdcf52576da04767a621e73940d8f1bd49190961b65ebf71",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded string or an array. Each change has exactly operation=\"replace_text\", filename, old_text and new_text. Use only authorized existing paths and at most six operations, one replacement per file. Copy old_text from DECODED source text; it must match exactly once. Encode the response as JSON once. For two source lines, the correct JSON string is \"first\\nsecond\"; it decodes to one actual newline. The different JSON string \"first\\\\nsecond\" decodes to literal backslash+n and will not match multiline source. Do not copy the escaped JSON display as literal source. Preserve indentation and trailing newlines. Never assume the controller will unescape or repair text. Complete every required file change and every requested test assertion. Preserve assertion operators, variable names, existing tests and required order. Object identity requires \"assert result is not values\"; \"result != values\" compares contents and is not equivalent. Do not weaken or substitute assertions. No prose, Markdown, tools, extra fields, creation, deletion or execution. All edits are prevalidated together; ambiguous or invalid batches write nothing. There is no automatic correction or retry. Static acceptance does not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "attempt_id": "step44-r1-stable_unique",
+      "round": 1,
+      "task": "stable_unique",
+      "baseline_attempt_id": "r1-stable_unique",
+      "prompt_version": "step43-structured-instructions-v1",
+      "request_version": "step44-focused-v1",
+      "baseline_payload_sha256": "4a93b4d4e59ecca5b94c87ff8a59947a1e16ccec6d72309dcbf7ca56a13784e7",
+      "payload_sha256": "e993a92fd392a2af49241037113d26f2ae9c30bf885e95da4424190581e10b51",
+      "system_prompt_sha256": "925d2207b4923bd9e374fd4be115cade6bd41756d643eb86568ae141211aed95",
+      "user_message_sha256": "a7049128c99a555a6aa0c63deb4e25bf6872407c154d5acce0760af25153027e",
+      "schema_sha256": "8ebdbed2e4a17b246631a620a382456eae7a976ab5776cf37690e8dd4aa5126e",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded string or an array. Each change has exactly operation=\"replace_text\", filename, old_text and new_text. Use only authorized existing paths and at most six operations, one replacement per file. Copy old_text from DECODED source text; it must match exactly once. Encode the response as JSON once. For two source lines, the correct JSON string is \"first\\nsecond\"; it decodes to one actual newline. The different JSON string \"first\\\\nsecond\" decodes to literal backslash+n and will not match multiline source. Do not copy the escaped JSON display as literal source. Preserve indentation and trailing newlines. Never assume the controller will unescape or repair text. Complete every required file change and every requested test assertion. Preserve assertion operators, variable names, existing tests and required order. Object identity requires \"assert result is not values\"; \"result != values\" compares contents and is not equivalent. Do not weaken or substitute assertions. No prose, Markdown, tools, extra fields, creation, deletion or execution. All edits are prevalidated together; ambiguous or invalid batches write nothing. There is no automatic correction or retry. Static acceptance does not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.\",\n  \"authorized_files\": {\n    \"unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"unique_order.py\": \"def unique_order(numbers):\\n    return list(numbers)\\n\",\n    \"test_unique_order.py\": \"from unique_order import unique_order\\n\\ndef test_empty():\\n    assert unique_order([]) == []\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "unique_order.py",
+                      "test_unique_order.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "attempt_id": "step44-r2-bounds",
+      "round": 2,
+      "task": "bounds",
+      "baseline_attempt_id": "r2-bounds",
+      "prompt_version": "step43-structured-instructions-v1",
+      "request_version": "step44-focused-v1",
+      "baseline_payload_sha256": "af4181f30c89a822d85969309a12d13c8034700f0ff8ddc7eafa472b9aaf1928",
+      "payload_sha256": "0166494c29b723375ae01a5794937ea7cff9f1691a9987ee7b88d3645b422b71",
+      "system_prompt_sha256": "925d2207b4923bd9e374fd4be115cade6bd41756d643eb86568ae141211aed95",
+      "user_message_sha256": "9a07c45f6ff2e458cad99a0ca9e58a984898db0684e6f35a11bfebf464aed8a9",
+      "schema_sha256": "18b66768c42dfd27fdcf52576da04767a621e73940d8f1bd49190961b65ebf71",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 43,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded string or an array. Each change has exactly operation=\"replace_text\", filename, old_text and new_text. Use only authorized existing paths and at most six operations, one replacement per file. Copy old_text from DECODED source text; it must match exactly once. Encode the response as JSON once. For two source lines, the correct JSON string is \"first\\nsecond\"; it decodes to one actual newline. The different JSON string \"first\\\\nsecond\" decodes to literal backslash+n and will not match multiline source. Do not copy the escaped JSON display as literal source. Preserve indentation and trailing newlines. Never assume the controller will unescape or repair text. Complete every required file change and every requested test assertion. Preserve assertion operators, variable names, existing tests and required order. Object identity requires \"assert result is not values\"; \"result != values\" compares contents and is not equivalent. Do not weaken or substitute assertions. No prose, Markdown, tools, extra fields, creation, deletion or execution. All edits are prevalidated together; ambiguous or invalid batches write nothing. There is no automatic correction or retry. Static acceptance does not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "attempt_id": "step44-r2-stable_unique",
+      "round": 2,
+      "task": "stable_unique",
+      "baseline_attempt_id": "r2-stable_unique",
+      "prompt_version": "step43-structured-instructions-v1",
+      "request_version": "step44-focused-v1",
+      "baseline_payload_sha256": "e7f6f80d980125f64266ecee82c696b5e3dc6514be2b8748986fcb1b0ff28453",
+      "payload_sha256": "1e65ac4382becc886e25e097c77aca84720fa6303844dddc53576a62731776b8",
+      "system_prompt_sha256": "925d2207b4923bd9e374fd4be115cade6bd41756d643eb86568ae141211aed95",
+      "user_message_sha256": "a7049128c99a555a6aa0c63deb4e25bf6872407c154d5acce0760af25153027e",
+      "schema_sha256": "8ebdbed2e4a17b246631a620a382456eae7a976ab5776cf37690e8dd4aa5126e",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 43,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded string or an array. Each change has exactly operation=\"replace_text\", filename, old_text and new_text. Use only authorized existing paths and at most six operations, one replacement per file. Copy old_text from DECODED source text; it must match exactly once. Encode the response as JSON once. For two source lines, the correct JSON string is \"first\\nsecond\"; it decodes to one actual newline. The different JSON string \"first\\\\nsecond\" decodes to literal backslash+n and will not match multiline source. Do not copy the escaped JSON display as literal source. Preserve indentation and trailing newlines. Never assume the controller will unescape or repair text. Complete every required file change and every requested test assertion. Preserve assertion operators, variable names, existing tests and required order. Object identity requires \"assert result is not values\"; \"result != values\" compares contents and is not equivalent. Do not weaken or substitute assertions. No prose, Markdown, tools, extra fields, creation, deletion or execution. All edits are prevalidated together; ambiguous or invalid batches write nothing. There is no automatic correction or retry. Static acceptance does not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.\",\n  \"authorized_files\": {\n    \"unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"unique_order.py\": \"def unique_order(numbers):\\n    return list(numbers)\\n\",\n    \"test_unique_order.py\": \"from unique_order import unique_order\\n\\ndef test_empty():\\n    assert unique_order([]) == []\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "unique_order.py",
+                      "test_unique_order.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "attempt_id": "step44-r3-bounds",
+      "round": 3,
+      "task": "bounds",
+      "baseline_attempt_id": "r3-bounds",
+      "prompt_version": "step43-structured-instructions-v1",
+      "request_version": "step44-focused-v1",
+      "baseline_payload_sha256": "57699f34ec366779edea7175ef20c39feaf9f23adc00fbe5252ea9b4fbfdc489",
+      "payload_sha256": "e085d585e2bd8ada962b1abdf142e288507e1f0f99812af370d5f2e65f3ce161",
+      "system_prompt_sha256": "925d2207b4923bd9e374fd4be115cade6bd41756d643eb86568ae141211aed95",
+      "user_message_sha256": "9a07c45f6ff2e458cad99a0ca9e58a984898db0684e6f35a11bfebf464aed8a9",
+      "schema_sha256": "18b66768c42dfd27fdcf52576da04767a621e73940d8f1bd49190961b65ebf71",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 44,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded string or an array. Each change has exactly operation=\"replace_text\", filename, old_text and new_text. Use only authorized existing paths and at most six operations, one replacement per file. Copy old_text from DECODED source text; it must match exactly once. Encode the response as JSON once. For two source lines, the correct JSON string is \"first\\nsecond\"; it decodes to one actual newline. The different JSON string \"first\\\\nsecond\" decodes to literal backslash+n and will not match multiline source. Do not copy the escaped JSON display as literal source. Preserve indentation and trailing newlines. Never assume the controller will unescape or repair text. Complete every required file change and every requested test assertion. Preserve assertion operators, variable names, existing tests and required order. Object identity requires \"assert result is not values\"; \"result != values\" compares contents and is not equivalent. Do not weaken or substitute assertions. No prose, Markdown, tools, extra fields, creation, deletion or execution. All edits are prevalidated together; ambiguous or invalid batches write nothing. There is no automatic correction or retry. Static acceptance does not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "attempt_id": "step44-r3-stable_unique",
+      "round": 3,
+      "task": "stable_unique",
+      "baseline_attempt_id": "r3-stable_unique",
+      "prompt_version": "step43-structured-instructions-v1",
+      "request_version": "step44-focused-v1",
+      "baseline_payload_sha256": "d6891dc3b0f6ebcbd8e86c1ce33cd0149fcfb65a6c3bef6949f674c6f6032ab1",
+      "payload_sha256": "757c7206a75fd8365eee75d1a9bb55ecb0d6ac0fa861413dcf547fcb3dd73384",
+      "system_prompt_sha256": "925d2207b4923bd9e374fd4be115cade6bd41756d643eb86568ae141211aed95",
+      "user_message_sha256": "a7049128c99a555a6aa0c63deb4e25bf6872407c154d5acce0760af25153027e",
+      "schema_sha256": "8ebdbed2e4a17b246631a620a382456eae7a976ab5776cf37690e8dd4aa5126e",
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 44,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded string or an array. Each change has exactly operation=\"replace_text\", filename, old_text and new_text. Use only authorized existing paths and at most six operations, one replacement per file. Copy old_text from DECODED source text; it must match exactly once. Encode the response as JSON once. For two source lines, the correct JSON string is \"first\\nsecond\"; it decodes to one actual newline. The different JSON string \"first\\\\nsecond\" decodes to literal backslash+n and will not match multiline source. Do not copy the escaped JSON display as literal source. Preserve indentation and trailing newlines. Never assume the controller will unescape or repair text. Complete every required file change and every requested test assertion. Preserve assertion operators, variable names, existing tests and required order. Object identity requires \"assert result is not values\"; \"result != values\" compares contents and is not equivalent. Do not weaken or substitute assertions. No prose, Markdown, tools, extra fields, creation, deletion or execution. All edits are prevalidated together; ambiguous or invalid batches write nothing. There is no automatic correction or retry. Static acceptance does not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix unique_order(numbers) for integer lists: remove duplicates, preserve first occurrence, return a new list and leave input unchanged. Preserve signature. Retain import and test_empty. Append only test_order asserting unique_order([3,1,3,2,1])==[3,1,2] then unique_order([-1,0,-1,2,0])==[-1,0,2]. Append test_input assigning values=[5,5,5], result=unique_order(values), then asserting result==[5], values==[5,5,5], result is not values in that order. Change both files.\",\n  \"authorized_files\": {\n    \"unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_unique_order.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"unique_order.py\": \"def unique_order(numbers):\\n    return list(numbers)\\n\",\n    \"test_unique_order.py\": \"from unique_order import unique_order\\n\\ndef test_empty():\\n    assert unique_order([]) == []\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "unique_order.py",
+                      "test_unique_order.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "success_definition": "All unchanged original static criteria, both required file changes, integrity and cleanup; functional correctness remains untested",
+  "feedback_delivery": "report_only; no corrective response or retry",
+  "preflight_required_after_approval": [
+    "approved commit/plan/controller hashes and pristine fixtures",
+    "bounded read-only Docker readiness then mandatory definitive inventory",
+    "Ollama API and exact retained qwen3:4b model identity",
+    "Linux engine and approved pinned image metadata",
+    "no ALFHA editing/execution staging"
+  ],
+  "lifecycle": "One fresh request per slot; checkpoint before generation and raw response before parsing; stop on infrastructure/integrity failure; no resume; authorization expires on completion or abort",
+  "recommendation_gate": "After live outcomes, assess readiness for limited human review; no automatic interactive integration or application"
+}
