@@ -139,3 +139,86 @@ jobs, generated-test execution, downloads or Docker execution occurred in this
 preparation. Live readiness/security checks remain required after approval.
 Reports are local under ignored `runs/step42_*`; only fixtures, plan, offline
 reporting implementation, deterministic tests and this document are committed.
+
+## Approved generation trial — 2026-10-23
+
+Exactly twelve fresh requests ran under the separately approved c43a446 plan.
+All completed; zero requests were retried and zero cases were unattempted.
+Bounded Docker readiness, pinned-image/Linux metadata, model identity and each
+mandatory inventory passed. These were read-only dependency checks, not fresh
+behavioral isolation probes or permission to execute code. No Docker worker,
+generated module or generated test ran. The authorization expired on completion.
+
+| Task | Round 1 | Round 2 | Round 3 | Static completion |
+| --- | --- | --- | --- | --- |
+| syntax | Pass | Pass | Pass | 3/3 |
+| even_sum | Pass | Pass | Pass | 3/3 |
+| bounds | Rejected batch | Rejected batch | Rejected batch | 0/3 |
+| stable_unique | Test contract failed | Test contract failed | Test contract failed | 0/3 |
+
+Static total: **6/12 (50%)**. All twelve responses were parseable JSON documents;
+nine proposals passed contextual authorization/exact-edit validation and three
+were rejected. Eighteen operations were declared and charged (never more than
+two per attempt); twelve edits actually staged and six operations were rejected.
+No unauthorized paths/operations, native calls, recovery calls, transport errors
+or safety/infrastructure failures were observed. Exact full responses, thinking
+and timing metadata, accepted/rejected operations, per-file AST checks, combined
+diffs, final file text/hashes and source snapshots remain in ignored run reports.
+
+All three bounds responses decoded to replacement strings containing literal
+backslash-n sequences rather than newline characters. Both old-text strings had
+zero matches. Whole-batch validation correctly staged neither file; no text was
+repaired automatically and the unexecuted replacement proposals were not promoted
+to candidates. All three stable_unique responses changed both files and passed
+AST/signature checks but used `assert result != values` instead of the requested
+`assert result is not values`. Unequal contents do not test object identity.
+The original test contract was retained and all three were marked incomplete.
+
+The same module hashes repeated across seeds 42/43/44. This is a small correlated
+sample with task-specific outcomes, not evidence of general coding reliability.
+Static completion does not prove functional correctness. These four varied tasks
+are not directly comparable to the historical two-task Step 38B percentage.
+
+## Retained candidates and proposed separate functional approval
+
+`runs/step42_candidate_execution_review.json` contains exact final sources,
+full hashes, per-origin snapshots, host vectors and policy decisions. It is data,
+not a permit. Nine staged module candidates are accepted by the current unchanged
+restricted policy; no string scope is requested. Their three distinct SHA-256s are:
+
+| Task / origins | Exact module SHA-256 | Jobs / vectors |
+| --- | --- | --- |
+| syntax, rounds 1–3 | `eb03dcb53008b66099f4a3324d5335b3cf0a3e93fefc7836afbb6a9eb88cfbdd` | 3 / 18 |
+| even_sum, rounds 1–3 | `e3493c685415619db281dea7561ef574c2e00abe1db30c8f229afce28400dc47` | 3 / 15 |
+| stable_unique, rounds 1–3 | `c7fec2319dc636218ddca64a330630cd9879d71700c252cf95b5813da7a00271` | 3 / 15 |
+
+Proposed scope: **nine Docker-only jobs, 48 fixed vectors**, one job per retained
+origin, not one per unique hash. Failed static test-file contracts remain failed;
+functional grading would concern only preserved implementation modules. The three
+unchanged clamp modules and their 21 original planned vectors are excluded from
+this proposed execution scope. Their unchanged snapshots are still retained.
+No candidate is reconstructed from proposed text or diffs. No repairs, new model
+requests, generated test execution, policy expansion or source application.
+
+Separate explicit authorization is required. Before any such jobs, re-verify
+hashes/profile/image and all eleven fresh mandatory behavioral probes; stop on
+any missing or failed isolation evidence, never retry jobs or failed checks.
+Keep all existing container restrictions, timeouts, limits and host-side grading.
+Default live candidate execution stays disabled. Full functional results remain
+unknown; no vectors have executed in this generation-only trial.
+
+Review evidence: `runs/step42_live_results.json`, `step42_live_analysis.json`,
+`step42_failure_details.json`, per-attempt response/candidate JSON snapshots and
+`step42_candidate_execution_review.json`. These generated reports remain local
+and ignored by Git; the documentation records the actual outcome.
+
+Post-trial validation: **408/408 trusted regressions passed** in 558.169 seconds.
+`runs/step42_post_live_regression_evidence.json` and its log preserve actual
+results. `runs/step42_live_closure.json` verifies generation authorization expired,
+all twelve final snapshots/hashes, unchanged plan/functional profile and original
+source repositories, no temporary editing staging, and a fresh verified empty
+container inventory. Candidate jobs executed: **zero**. Default candidate
+execution/source application remain disabled; no interactive/default-model,
+fixture, controller, operation-budget or Docker-policy implementation changed.
+The proposed nine-job review is still pending separate approval. Only these
+validated results and the scope/hash table are committed in this completion.
