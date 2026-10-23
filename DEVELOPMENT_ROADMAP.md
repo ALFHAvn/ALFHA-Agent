@@ -16,15 +16,28 @@ Evidence: `evaluations/runs/step47a_smoke_result.json` and the exclusive
 `step47a_smoke_consumed.json` claim. These local reports are intentionally ignored
 by Git. Existing Step 46 diagnostics remain untouched.
 
-The workflow is a guarded pilot; wider readiness is **unverified**. Historical
-version 2 success does not establish reliability of this interactive integration.
-Static validation does not establish functional correctness.
+After two further separately authorized preflight rejections, a fresh attempt
+approved after the owner closed applications passed readiness and completed one
+Qwen3 response in 171.875 seconds. Both authorized files changed, using 2/6
+operations, with no rejected edits. Both ASTs parse, the signature is preserved,
+and the generated test AST matches the exact expected contract. The clamp branch
+structure implements the requested comparisons on inspection; no candidate code
+or tests ran. This is one static smoke success, not measured functional correctness
+or repeatable reliability.
+
+Exact response, final snapshots/hashes, diff and preflight evidence are preserved
+in `evaluations/runs/step47a_smoke_retry3_result.json`. Closure evidence confirms
+authorization expired, original fixture bytes match, no staging remains and live
+functional execution remains disabled. Earlier failed invocations remain intact.
+
+The workflow is suitable for a limited human-reviewed pilot with explicit file
+selection and resource gating. Wider readiness is **unverified**. Static validation
+does not establish functional correctness, and source application stays unavailable.
 
 ## Ordered next work
 
-1. Complete one fresh, explicitly approved disposable smoke request when resource
-   readiness passes. Reuse the fixed smoke fixtures, one response, six operations,
-   no retries or candidate execution. Inspect the exact test contract and diff.
+1. Completed: one explicitly approved disposable smoke response with exact test
+   contract and diff inspection. No further live request is authorized.
 2. Improve review usability from that evidence: show incomplete requirements,
    retain readable reports and distinguish proposal validity from task completion.
    Use deterministic tests before considering another live sample.

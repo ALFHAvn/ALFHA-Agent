@@ -168,3 +168,24 @@ gate and workload lock, including the new numeric-diagnostic test. No new full
 suite run is claimed for this diagnostic-only follow-up. Historical full/focused
 results above remain separate evidence. See `DEVELOPMENT_ROADMAP.md` for priorities
 and the proposed, unimplemented source-application approval design.
+
+### Fresh approved smoke completed after resource availability improved
+
+A later, separately approved attempt passed the unchanged preflight and completed
+one Qwen3 response in **171.875 seconds**. Its strict version 2 proposal staged two
+authorized changes using **2/6 operations**, with zero rejected changes. Both files
+passed AST parsing, the clamp signature was preserved, and the generated test AST
+matched the expected five-assertion edge contract. The implementation uses explicit
+below/above/interior branches consistent with the request on source inspection.
+The test source omits a cosmetic blank line before `test_edges`; AST comparison
+ignores formatting and the original assertions remain intact.
+
+No generated Python or tests executed. No functional pass is claimed. The source
+fixture bytes remained unchanged, no temporary staging remains, and authorization
+expired. Full evidence and candidate hashes are in the ignored local report
+`evaluations/runs/step47a_smoke_retry3_result.json`, with final inventory evidence
+in `step47a_smoke_retry3_closure.json`. No regressions were rerun for this live
+smoke/documentation-only update; existing test evidence above remains distinct.
+
+Recommendation: limited review-only pilot with explicit files and human inspection;
+one successful response does not establish general or repeatable coding reliability.
