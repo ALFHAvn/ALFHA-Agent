@@ -22,13 +22,13 @@ class ProposalValidationError(SafetyError):
         super().__init__(diagnostic['message'])
 
 
-def proposal_messages(request, contents):
+def proposal_messages(request, contents, *, allow_line_arrays=False):
     """Versioned future instructions; never rewrites frozen benchmark payloads.
 
     This creates data only. It grants no model calls, retries, or execution.
     """
     request = validate_request(request)
-    proposal_schema(request)
+    proposal_schema(request, allow_line_arrays=allow_line_arrays)
     if (set(contents) != set(request['authorized_files']) or
             any(type(text) is not str for text in contents.values()) or
             any('read' not in ops for ops in request['authorized_files'].values())):
@@ -53,6 +53,25 @@ def proposal_messages(request, contents):
         'There is no automatic correction or retry. Static acceptance does not prove '
         'functional correctness. Changes remain isolated and review-only.'
     )
+    if allow_line_arrays:
+        system = (
+            'Return one raw JSON object with exactly version=2 and changes. Each change '
+            'has exactly operation="replace_lines", filename, old_lines and new_lines. '
+            'Both line fields are arrays of strings without CR or LF characters. '
+            'Join elements with exactly one LF between them; there is no implicit final LF. '
+            'A final empty element represents a trailing LF; interior empty elements '
+            'represent blank lines. new_lines=[] means empty replacement text; old_lines '
+            'must join to nonempty text. Backslashes remain literal: never encode line '
+            'separators as backslash+n. Copy source lines exactly, including indentation. '
+            'Use only authorized existing paths, at most six operations and one replacement '
+            'per file. The joined old_lines must match exactly once. No string-based '
+            'fields, prose, Markdown, tools, creation, deletion or execution. All edits '
+            'are prevalidated together; invalid batches write nothing. No repair or retry. '
+            'Complete all required file changes and test assertions; preserve operators, '
+            'names and order. Object identity requires "assert result is not values", '
+            'not "result != values". Static checks do not prove functional correctness. '
+            'Changes remain isolated and review-only.'
+        )
     context = {'task': request['description'], 'authorized_files': request['authorized_files'],
                'required_changed_files': request.get('required_changed_files',
                    [name for name, ops in request['authorized_files'].items() if 'modify' in ops]),
@@ -61,8 +80,9 @@ def proposal_messages(request, contents):
             {'role': 'user', 'content': json.dumps(context, ensure_ascii=True, indent=2)}]
 
 
-def proposal_schema(request):
+def proposal_schema(request, *, allow_line_arrays=False):
     """Exact-path schema for a future reviewed adapter; grants no authority."""
+    _line_option(allow_line_arrays)
     request = validate_request(request)
     if 'tool_policy' in request or any(set(ops) - {'read', 'modify'} or
             'modify' in ops and 'read' not in ops for ops in request['authorized_files'].values()):
@@ -70,7 +90,7 @@ def proposal_schema(request):
     names = [name for name, ops in request['authorized_files'].items() if 'modify' in ops]
     if not names:
         raise SafetyError('Require at least one authorized modification target')
-    return {'type': 'object', 'additionalProperties': False, 'required': ['version', 'changes'],
+    legacy = {'type': 'object', 'additionalProperties': False, 'required': ['version', 'changes'],
             'properties': {'version': {'type': 'integer', 'const': 1},
                 'changes': {'type': 'array', 'minItems': 1, 'maxItems': MAX_OPERATIONS,
                     'items': {'type': 'object', 'additionalProperties': False,
@@ -79,6 +99,32 @@ def proposal_schema(request):
                             'filename': {'type': 'string', 'enum': names},
                             'old_text': {'type': 'string', 'minLength': 1},
                             'new_text': {'type': 'string'}}}}}}
+    if not allow_line_arrays:
+        return legacy
+    lines = copy.deepcopy(legacy)
+    lines['properties']['version']['const'] = 2
+    item = lines['properties']['changes']['items']
+    item['required'] = ['operation', 'filename', 'old_lines', 'new_lines']
+    item['properties'] = {
+        'operation': {'type': 'string', 'const': 'replace_lines'},
+        'filename': {'type': 'string', 'enum': names},
+        'old_lines': {'type': 'array', 'minItems': 1,
+                      'items': {'type': 'string', 'pattern': r'^[^\r\n]*$(?![\s\S])'}},
+        'new_lines': {'type': 'array',
+                      'items': {'type': 'string', 'pattern': r'^[^\r\n]*$(?![\s\S])'}}}
+    return {'oneOf': [legacy, lines]}
+
+
+def _line_option(value):
+    if type(value) is not bool:
+        raise SafetyError('allow_line_arrays must be an explicit boolean')
+
+
+def _line_text(value, field):
+    if (type(value) is not list or any(type(line) is not str or '\r' in line or '\n' in line
+                                      for line in value)):
+        raise SafetyError(field + ' must be an array of strings without CR or LF')
+    return '\n'.join(value)
 
 
 def strict_json(text):
@@ -103,19 +149,40 @@ def strict_json(text):
         raise SafetyError('Require one complete raw JSON document; no fences, prose or trailing proposals: ' + str(exc)) from exc
 
 
-def envelope(text):
+def envelope(text, *, allow_line_arrays=False):
+    _line_option(allow_line_arrays)
     document = strict_json(text)
     if (not isinstance(document, dict) or set(document) != {'version', 'changes'} or
-            type(document['version']) is not int or document['version'] != 1 or
+            type(document['version']) is not int or document['version'] not in
+            ((1, 2) if allow_line_arrays else (1,)) or
             not isinstance(document['changes'], list) or not document['changes']):
         raise SafetyError('Require exactly version=1 and a nonempty changes array')
+    if document['version'] == 2:
+        if any(not isinstance(change, dict) or set(change) !=
+               {'operation', 'filename', 'old_lines', 'new_lines'} or
+               change['operation'] != 'replace_lines' for change in document['changes']):
+            raise SafetyError('version=2 requires only explicit replace_lines changes')
+    elif any(isinstance(change, dict) and
+             (change.get('operation') == 'replace_lines' or
+              'old_lines' in change or 'new_lines' in change) for change in document['changes']):
+        raise SafetyError('Line arrays require opt-in and version=2; mixed representations rejected')
     return document['changes']
 
 
-def validate_changes(changes, authorization, contents):
+def validate_changes(changes, authorization, contents, *, allow_line_arrays=False):
     """Pure prevalidation/simulation. Never writes files or repairs model text."""
+    _line_option(allow_line_arrays)
     prepared, seen = {}, set()
+    if (any(isinstance(c, dict) and c.get('operation') == 'replace_lines' for c in changes)
+            and any(not isinstance(c, dict) or c.get('operation') != 'replace_lines' for c in changes)):
+        raise SafetyError('Mixed string and line-array batches are not supported')
     for change in changes:
+        if isinstance(change, dict) and change.get('operation') == 'replace_lines':
+            if not allow_line_arrays or set(change) != {'operation', 'filename', 'old_lines', 'new_lines'}:
+                raise SafetyError('Explicit opt-in and exactly operation, filename, old_lines, new_lines required')
+            change = {'operation': 'replace_text', 'filename': change['filename'],
+                      'old_text': _line_text(change['old_lines'], 'old_lines'),
+                      'new_text': _line_text(change['new_lines'], 'new_lines')}
         if not isinstance(change, dict) or set(change) != {'operation', 'filename', 'old_text', 'new_text'}:
             raise SafetyError('Each change requires exactly operation, filename, old_text, new_text')
         if any(not isinstance(value, str) for value in change.values()):
@@ -156,13 +223,14 @@ def validate_changes(changes, authorization, contents):
     return prepared
 
 
-def run_proposals(request, responses):
+def run_proposals(request, responses, *, allow_line_arrays=False):
     """Data-only mocked response sequence; live adapters are deliberately unsupported.
 
     Every declared change (even in a rejected batch) consumes an operation slot.
     Malformed envelopes consume one. Oversized batches exhaust the remaining
     slots and write nothing. At most six response documents are accepted as input.
     """
+    _line_option(allow_line_arrays)
     request = validate_request(request)
     if 'tool_policy' in request:
         raise SafetyError('Native-tool recovery/inspection policies do not authorize this separate protocol')
@@ -196,6 +264,8 @@ def run_proposals(request, responses):
               'status': 'running', 'errors': [], 'source_application': False, 'model_invoked': False,
               'candidate_execution': 'disabled', 'functional_correctness': 'not_tested',
               'ready_for_human_review': False, 'report_path': str(output)}
+    if allow_line_arrays:
+        report.update(protocol='explicit-replacements-v1+lines-v2', allow_line_arrays=True)
     expected_contents = None
     def save():
         report['checkpoint_utc'] = timestamp()
@@ -211,7 +281,7 @@ def run_proposals(request, responses):
             report['events'].append(event)
             save()
             try:
-                changes = envelope(response)
+                changes = envelope(response, allow_line_arrays=allow_line_arrays)
             except (SafetyError, UnicodeError) as exc:
                 report['budget_used'] += 1
                 event.update(status='rejected', error=str(exc), charged_operations=1)
@@ -235,7 +305,8 @@ def run_proposals(request, responses):
                     report['status'] = 'integrity_or_stale_failure'
                     save()
                     break
-                prepared = validate_changes(changes, authorization, contents)
+                prepared = validate_changes(changes, authorization, contents,
+                                            allow_line_arrays=allow_line_arrays)
             except (SafetyError, OSError, UnicodeError, KeyError) as exc:
                 event.update(status='rejected', error=str(exc))
                 if isinstance(exc, ProposalValidationError):

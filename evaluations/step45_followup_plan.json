@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "status": "preparation_only_requires_separate_approval",
+  "generation_authorized": false,
+  "candidate_execution_authorized": false,
+  "maximum_generation_requests": 2,
+  "retries": 0,
+  "corrective_requests": 0,
+  "operation_budget": 6,
+  "response_timeout_seconds": 180,
+  "source_application": false,
+  "basis": "Step 44 round 1 clamping; same fixture, user message, options and acceptance criteria",
+  "intervention": "System instructions and explicit response representation schema only",
+  "task": {
+    "id": "bounds",
+    "functional_task": "clamp",
+    "module": "clamp.py",
+    "initial_files": {
+      "clamp.py": "def clamp(value, lower, upper):\n    return value\n",
+      "test_clamp.py": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n"
+    },
+    "reference_source": "def clamp(value, lower, upper):\n    return max(lower, min(value, upper))\n",
+    "description": "Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.",
+    "test_file": "test_clamp.py",
+    "expected_test_source": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n\ndef test_edges():\n    assert clamp(-1, 0, 10) == 0\n    assert clamp(11, 0, 10) == 10\n    assert clamp(0, 0, 10) == 0\n    assert clamp(10, 0, 10) == 10\n    assert clamp(7, 3, 3) == 3\n",
+    "functional_profile": {
+      "id": "clamp",
+      "filename": "clamp.py",
+      "function": "clamp",
+      "parameters": [
+        "value",
+        "lower",
+        "upper"
+      ],
+      "instruction": "Fix clamp(value, lower, upper) to return lower below the interval, upper above it, or value inside it. Inputs are integers with lower <= upper; boundaries are inclusive.",
+      "tests": [
+        {
+          "args": [
+            5,
+            0,
+            10
+          ],
+          "expected": 5
+        },
+        {
+          "args": [
+            -1,
+            0,
+            10
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            11,
+            0,
+            10
+          ],
+          "expected": 10
+        },
+        {
+          "args": [
+            0,
+            0,
+            10
+          ],
+          "expected": 0
+        },
+        {
+          "args": [
+            10,
+            0,
+            10
+          ],
+          "expected": 10
+        },
+        {
+          "args": [
+            7,
+            3,
+            3
+          ],
+          "expected": 3
+        },
+        {
+          "args": [
+            -5,
+            -10,
+            -2
+          ],
+          "expected": -5
+        }
+      ]
+    },
+    "fixture_sha256": "da222e96c360e02928fe23c1beb72ed7d6cdf012dc78f5cb658f7690cb01570e"
+  },
+  "attempts": [
+    {
+      "id": "step45-followup-legacy",
+      "allow_line_arrays": false,
+      "required_document_version": 1,
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=1 and changes, not a JSON-encoded string or an array. Each change has exactly operation=\"replace_text\", filename, old_text and new_text. Use only authorized existing paths and at most six operations, one replacement per file. Copy old_text from DECODED source text; it must match exactly once. Encode the response as JSON once. For two source lines, the correct JSON string is \"first\\nsecond\"; it decodes to one actual newline. The different JSON string \"first\\\\nsecond\" decodes to literal backslash+n and will not match multiline source. Do not copy the escaped JSON display as literal source. Preserve indentation and trailing newlines. Never assume the controller will unescape or repair text. Complete every required file change and every requested test assertion. Preserve assertion operators, variable names, existing tests and required order. Object identity requires \"assert result is not values\"; \"result != values\" compares contents and is not equivalent. Do not weaken or substitute assertions. No prose, Markdown, tools, extra fields, creation, deletion or execution. All edits are prevalidated together; ambiguous or invalid batches write nothing. There is no automatic correction or retry. Static acceptance does not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 1
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_text",
+                  "new_text"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_text"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_text": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "new_text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "step45-followup-lines",
+      "allow_line_arrays": true,
+      "required_document_version": 2,
+      "payload": {
+        "model": "qwen3:4b",
+        "stream": false,
+        "options": {
+          "temperature": 0,
+          "seed": 42,
+          "num_ctx": 8192
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Return one raw JSON object with exactly version=2 and changes. Each change has exactly operation=\"replace_lines\", filename, old_lines and new_lines. Both line fields are arrays of strings without CR or LF characters. Join elements with exactly one LF between them; there is no implicit final LF. A final empty element represents a trailing LF; interior empty elements represent blank lines. new_lines=[] means empty replacement text; old_lines must join to nonempty text. Backslashes remain literal: never encode line separators as backslash+n. Copy source lines exactly, including indentation. Use only authorized existing paths, at most six operations and one replacement per file. The joined old_lines must match exactly once. No string-based fields, prose, Markdown, tools, creation, deletion or execution. All edits are prevalidated together; invalid batches write nothing. No repair or retry. Complete all required file changes and test assertions; preserve operators, names and order. Object identity requires \"assert result is not values\", not \"result != values\". Static checks do not prove functional correctness. Changes remain isolated and review-only."
+          },
+          {
+            "role": "user",
+            "content": "{\n  \"task\": \"Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.\",\n  \"authorized_files\": {\n    \"clamp.py\": [\n      \"read\",\n      \"modify\"\n    ],\n    \"test_clamp.py\": [\n      \"read\",\n      \"modify\"\n    ]\n  },\n  \"initial_files\": {\n    \"clamp.py\": \"def clamp(value, lower, upper):\\n    return value\\n\",\n    \"test_clamp.py\": \"from clamp import clamp\\n\\ndef test_inside():\\n    assert clamp(5, 0, 10) == 5\\n\"\n  }\n}"
+          }
+        ],
+        "format": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "changes"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "const": 2
+            },
+            "changes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 6,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "operation",
+                  "filename",
+                  "old_lines",
+                  "new_lines"
+                ],
+                "properties": {
+                  "operation": {
+                    "type": "string",
+                    "const": "replace_lines"
+                  },
+                  "filename": {
+                    "type": "string",
+                    "enum": [
+                      "clamp.py",
+                      "test_clamp.py"
+                    ]
+                  },
+                  "old_lines": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[^\\r\\n]*$(?![\\s\\S])"
+                    }
+                  },
+                  "new_lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[^\\r\\n]*$(?![\\s\\S])"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "preflight": [
+    "Fresh reviewed commit and plan hash",
+    "Unchanged source fixtures",
+    "Ollama exact model identity and API readiness",
+    "Bounded Docker readiness and definitive container inventory",
+    "No leftover owned staging"
+  ],
+  "evidence": [
+    "Exact request and response, response duration",
+    "Validity and rejection diagnostics",
+    "Charged operations and actually staged edits",
+    "Final diff, candidate strings and hashes",
+    "Implementation static and generated-test contract checks separately",
+    "Source integrity, cleanup, authorization expiration"
+  ],
+  "safety": "No live adapter included. One request per slot, no retries or repair; strict JSON; exact allowlists; review-only disposable staging; no generated code or tests executed; stop on infrastructure or integrity failure",
+  "limitations": "One sample per representation cannot establish reliability or causality; no functional results",
+  "validation_source_sha256": "d061c9fd8d89299cfb0eee87457d077d040f0e079a519cb521ae2c40f1575728"
+}

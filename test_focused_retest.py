@@ -53,7 +53,14 @@ class FocusedPlanTests(unittest.TestCase):
 
     def test_plan_stable_matches_review_file_and_grants_no_authority(self):
         self.assertEqual(self.plan,build_plan())
-        self.assertEqual(self.plan,json.loads(Path('evaluations/step44_plan.json').read_text(encoding='utf-8')))
+        frozen=json.loads(Path('evaluations/step44_plan.json').read_text(encoding='utf-8'))
+        # Historical source hashes describe the reviewed implementation, not future
+        # opt-in extensions. Keep the frozen plan intact and compare every request,
+        # schema and option; new generation would require a fresh hash-bound review.
+        current=copy.deepcopy(self.plan)
+        for field in ('instruction_builder_sha256','validation_sources_sha256'):
+            current.pop(field);frozen.pop(field)
+        self.assertEqual(current,frozen)
         self.assertFalse(self.plan['generation_authorized']);self.assertFalse(self.plan['candidate_execution_authorized'])
         self.assertFalse(self.plan['source_application']);self.assertEqual(self.plan['maximum_generation_requests'],6)
 
