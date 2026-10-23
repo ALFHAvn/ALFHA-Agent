@@ -169,3 +169,83 @@ the existing 180-second response timeout and small disposable Git fixtures. Prio
 focused responses averaged 164.6 seconds; that is an observation, not a runtime
 guarantee. There is no live runner in this preparation. Separate approval of the
 final commit and fixed requests is required before either generation request.
+
+## Approved two-request comparison — 2026-10-23
+
+The user separately authorized the two fixed requests at e9044b7. Both were sent
+once, in legacy-then-line-array order, without retries, corrective requests,
+schema changes, automatic repairs or candidate execution. Read-only Docker
+readiness, pinned-image metadata, exact baseline Qwen3 identity and mandatory
+inventory passed before generation and after both attempts. Source snapshots
+remained unchanged; owned staging was discarded; one-time authorization expired.
+
+| Result | Legacy version 1 | Line-array version 2 |
+| --- | --- | --- |
+| Response time | 157.406 s | 154.312 s |
+| JSON syntactically valid | Yes | Yes |
+| Contextually valid proposal | No | Yes |
+| Charged operations | 2/6 | 2/6 |
+| Accepted edits / rejected operations | 0 / 2 | 2 / 0 |
+| Required files changed | 0/2 | 2/2 |
+| Implementation static requirements | Fail: unchanged module | Pass |
+| Exact generated-test AST contract | Fail: unchanged tests | Pass |
+| Complete static task | Fail | Pass |
+| Functional execution | Not run | Not run |
+
+The legacy output again encoded literal backslash+n in all four old_text/new_text
+fields, with no actual newlines and zero target matches. Whole-batch validation
+wrote nothing. Its missing-test diagnostics describe unchanged final staging,
+not an independent judgment about the unapplied replacement proposal.
+Its raw content exactly repeated Step 44 round 1; the new invocation and response
+envelope are retained separately. The new version 2 content matched no Step 44
+response exactly.
+
+The version 2 output contained two replace_lines operations, valid arrays without
+embedded CR/LF or literal backslash+n, and final empty elements. Both joined
+targets matched once. The final module retained its signature and used explicit
+below/above/interior branches. The final test AST exactly matched the unchanged
+contract: existing import/test_inside and all five test_edges assertions in order.
+Independent response/snapshot analysis confirmed archive agreement and hashes:
+
+- clamp.py: `b048cd32a37f44104fbb4b54d31578bb00c7bb723ca2a6f0a865a81bef29e731`
+- test_clamp.py: `040e046b52155dfacb1bc5eb8d0cb8f24b71383ca651a611a909241712a21e59`
+
+The server returned a version 2 response under the submitted schema; this is not
+proof of every server-side grammar constraint. Controller-side validation remained
+the safety boundary. Across both attempts there were no unauthorized operations,
+native calls, recovery calls or recorded infrastructure/integrity failures.
+No generated Python or generated tests ran, including inside Docker. Neither the
+implementation nor the default model/interactive controller was changed.
+
+This pair supports further controlled study of line arrays, not a reliability or
+causality claim. Keep the format opt-in and review-only; functional execution of
+the preserved candidate requires a separately approved scope.
+
+Complete ignored evidence: `runs/step45_live_results.json`, separate exact response
+and candidate snapshot JSON files, and `runs/step45_live_comparison.json`.
+
+Final checks confirmed expired authorization, live execution and line arrays
+disabled by default, unchanged source repositories/fixtures and historical
+evidence, verified candidate hashes, zero staging workspaces and a definitive
+empty Docker container inventory. No controller, default-model, policy or fixture
+change was made for this comparison.
+
+The first post-comparison regression run encountered one assertion failure and
+three errors before interruption. Git launch errors explicitly reported Windows
+error 1455 (paging file too small); the shell also reported OutOfMemoryException
+and exited, leaving its test child waiting without CPU progress. The stalled
+owned test process was stopped after identity verification. Its partial evidence
+was preserved, not replaced or counted as a completed suite. The assertion's
+precise cause is not established by the retained traceback, and a root cause for
+the transient host resource problem remains unresolved. No system settings or
+services were changed.
+
+A fresh full deterministic run with direct file logging passed **476/476** in
+697.691 seconds, including the tests affected in the interrupted run. This is not
+proof that the resource issue was fixed. No model attempts were repeated.
+Evidence: `runs/step45_live_post_regression_interrupted_evidence.json`,
+`runs/step45_host_resource_evidence.json`,
+`runs/step45_live_post_regression_rerun.log`,
+`runs/step45_live_post_regression_rerun_evidence.json`, and
+`runs/step45_live_closure.json`. Storage was then measured separately without
+cleanup; see [STORAGE_AUDIT.md](STORAGE_AUDIT.md).
