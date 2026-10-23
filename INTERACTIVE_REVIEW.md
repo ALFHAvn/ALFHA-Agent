@@ -195,3 +195,43 @@ Saved review reports can now be reopened offline with
 untrusted text and labels results as retained, unverified claims. It does not
 contact Ollama, recreate staging, follow embedded paths or restore authorization.
 See `REVIEW_PILOT.md` for the prepared non-critical time-report maintenance pilot.
+
+## Exact source context follow-up
+
+New interactive requests use prompt version `v2-exact-source-lines-1`. Alongside
+the existing authorized source strings, context includes `initial_file_lines`:
+exact `text.split('\n')` arrays. Consecutive empty elements and the final empty
+element are retained. Instructions recommend copying a short unique contiguous
+region instead of retyping a whole file. No whitespace is normalized and no
+authorization is expanded. The existing 65,536-byte total request limit still
+applies, so duplicated context can require a smaller authorized task.
+
+This context addition is an explicit `include_source_lines=True` option to the
+message builder, enabled only by interactive review and newly prepared pilot
+plans. Its default is false. Existing frozen benchmark requests and already
+preserved pilot plans are not changed or rerun. The strict version 2 edit schema,
+six-operation budget and atomic exact-match validation stay unchanged. CRLF
+support is not expanded: arrays retain any CR characters, and protocol line
+elements still cannot contain CR/LF. This is not a newline conversion feature.
+
+For a missing replacement, an optional diagnostic compares a bounded region only
+when its first and last target lines each occur exactly once in the inspected
+source. It records source line bounds, empty-line counts and the first differing
+line (text capped at 160 characters). It scans at most 2,000 source lines and
+200 target/context lines. Missing, duplicate or over-limit anchors produce no
+hint. The original missing/ambiguous rejection codes and fields are preserved.
+This is human diagnostic context, not a suggested replacement to execute, a
+normalized match, or proof of model intent. Ambiguous targets still fail closed.
+
+The saved failed pilot is not replayed or repaired. Deterministic tests reproduce
+its missing-empty-line shape and verify both files remain unchanged when the
+batch is rejected. Live performance of the new prompt is unmeasured; any live
+retest requires separate approval.
+
+Verification: the full resource-gated regression suite passed **525/525 tests in
+689.656 seconds**, including seven new exact-context tests. These cover the saved
+failure shape, unchanged legacy/default messages, exact accepted targets, bounded
+and ambiguous context, unauthorized paths, atomic rejection, source preservation
+and retained diagnostics. All model responses used by the suite are mocked; no
+live effectiveness claim or fresh Docker isolation-probe claim is made.
+Log: `evaluations/runs/exact_context_regression.log`.

@@ -47,11 +47,16 @@ does not establish functional correctness, and source application stays unavaila
    empty line in the test replacement target. Strict atomic validation rejected
    both edits: zero changed files, 2/6 operations charged. Sources and read-only
    context stayed unchanged; authorization expired. Details: `REVIEW_PILOT.md`.
-   Next safe improvement: clearer empty-line/context presentation and mismatch
-   diagnostics, tested offline against this saved response. Preserve exact-match
-   semantics; never collapse whitespace, repair proposals, or retry automatically.
+   Offline follow-up now provides opt-in exact source-line arrays for new
+   interactive requests, plus bounded unique-boundary mismatch diagnostics.
+   Deterministic tests reproduce the missing-empty-line failure without replaying
+   the saved response. Exact-match semantics are preserved: no whitespace collapse,
+   proposal repair or automatic retry. Live effectiveness remains unmeasured.
    No further live generation is authorized. Use deterministic tests before
    considering another live sample.
+   Full offline validation passed 525/525 regressions. A separate updated pilot
+   plan is ready for review in `evaluations/runs/exact_context_pilot_preparation.json`;
+   preparation does not authorize generation or revive the previous approval.
 3. Prepare a human-approval design for applying reviewed changes. Keep the current
    implementation review-only until that design receives separate review.
 4. Introduce controlled functional verification only for supported tasks with

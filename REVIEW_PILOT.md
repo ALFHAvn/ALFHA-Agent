@@ -165,3 +165,17 @@ Complete local evidence: `evaluations/runs/everyday_review_pilot_result.json`,
 `everyday_review_pilot_live_closure.json`. The full response, exact decoded
 replacement arrays, rejected batch, unchanged final snapshots/hashes and empty
 diff are retained. No new live attempt is authorized.
+
+## Prepared follow-up, not authorized to run
+
+An updated offline plan is preserved separately at
+`evaluations/runs/exact_context_pilot_preparation.json`. It uses the same first-party
+fixture bytes, task description, two editable Python paths, read-only README,
+version 2 edit schema and six-operation budget. The only request intervention is
+the `v2-exact-source-lines-1` prompt/context described in `INTERACTIVE_REVIEW.md`.
+The previous plan and failed response remain unchanged.
+
+Proposed scope for separate approval: exactly one Qwen3 response, fresh resource
+and identity checks, isolated staging, no retries/corrections, no candidate/test
+execution, and no source application. Compare actual task completion with the
+previous zero-edit result, without claiming repeatable improvement from one sample.

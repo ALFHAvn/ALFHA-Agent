@@ -22,12 +22,14 @@ class ProposalValidationError(SafetyError):
         super().__init__(diagnostic['message'])
 
 
-def proposal_messages(request, contents, *, allow_line_arrays=False):
+def proposal_messages(request, contents, *, allow_line_arrays=False, include_source_lines=False):
     """Versioned future instructions; never rewrites frozen benchmark payloads.
 
     This creates data only. It grants no model calls, retries, or execution.
     """
     request = validate_request(request)
+    if type(include_source_lines) is not bool or include_source_lines and not allow_line_arrays:
+        raise SafetyError('Source-line context requires explicit version 2 line-array mode')
     proposal_schema(request, allow_line_arrays=allow_line_arrays)
     if (set(contents) != set(request['authorized_files']) or
             any(type(text) is not str for text in contents.values()) or
@@ -76,8 +78,45 @@ def proposal_messages(request, contents, *, allow_line_arrays=False):
                'required_changed_files': request.get('required_changed_files',
                    [name for name, ops in request['authorized_files'].items() if 'modify' in ops]),
                'initial_files': contents}
+    if include_source_lines:
+        system += (
+            ' Copy contiguous elements from initial_file_lines into old_lines. '
+            'Every empty string is significant: two consecutive empty strings mean '
+            'two blank lines. Never collapse or omit them. Select a short unique '
+            'target when possible, rather than retyping the entire file. The last '
+            'empty element denotes a final LF. These arrays are exact LF splits, '
+            'not normalized source; CR characters, if present, are retained. '
+            'Do not copy line numbers or JSON display escaping into source lines.'
+        )
+        context['initial_file_lines'] = {name: text.split('\n') for name, text in contents.items()}
     return [{'role': 'system', 'content': system},
             {'role': 'user', 'content': json.dumps(context, ensure_ascii=True, indent=2)}]
+
+
+def _target_context_hint(current, old):
+    """Bounded diagnostic only, using unique exact boundary lines. Never repairs."""
+    proposed = old.split('\n', 200)
+    source = current.split('\n', 2000)[:2000]
+    if len(proposed) > 200 or not proposed[0] or not proposed[-1]:
+        return None
+    starts = [i for i, line in enumerate(source) if line == proposed[0]]
+    ends = [i for i, line in enumerate(source) if line == proposed[-1]]
+    if len(starts) != 1 or len(ends) != 1:
+        return None
+    start, end = starts[0], ends[0]
+    if not start <= end < start + 200:
+        return None
+    actual = source[start:end + 1]
+    if actual == proposed:
+        return None
+    mismatch = next((i for i in range(min(len(actual), len(proposed)))
+                     if actual[i] != proposed[i]), min(len(actual), len(proposed)))
+    return {'source_start_line': start + 1, 'source_end_line': end + 1,
+            'first_differing_offset': mismatch,
+            'source_line': actual[mismatch][:160] if mismatch < len(actual) else None,
+            'proposed_line': proposed[mismatch][:160] if mismatch < len(proposed) else None,
+            'source_empty_lines': actual.count(''), 'proposed_empty_lines': proposed.count(''),
+            'scope': 'Unique exact boundary lines; diagnostic only, no normalized match or repair'}
 
 
 def proposal_schema(request, *, allow_line_arrays=False):
@@ -210,10 +249,20 @@ def validate_changes(changes, authorization, contents, *, allow_line_arrays=Fals
                             'the response once; no unescaping or repair is performed.')
             else:
                 message += 'Copy the exact decoded source, including indentation and newlines; nothing was applied.'
-            raise ProposalValidationError({'code': 'ambiguous_replacement' if count > 1 else 'replacement_not_found',
+            hint = _target_context_hint(contents[name], old) if count == 0 else None
+            if hint is not None:
+                message += (f' Unique boundary-line context at source lines '
+                            f'{hint["source_start_line"]}-{hint["source_end_line"]}: '
+                            f'{hint["source_empty_lines"]} empty source lines versus '
+                            f'{hint["proposed_empty_lines"]} in the target. '
+                            'Preserve every empty line; no whitespace normalization is performed.')
+            diagnostic = {'code': 'ambiguous_replacement' if count > 1 else 'replacement_not_found',
                 'filename': name, 'field': 'old_text', 'match_count': count,
                 'literal_backslash_n': literal, 'actual_newline_count': old.count('\n'),
-                'message': message})
+                'message': message}
+            if hint is not None:
+                diagnostic['context_hint'] = hint
+            raise ProposalValidationError(diagnostic)
         result = contents[name].replace(old, new, 1)
         encoded = result.encode('utf-8')
         if len(encoded) > MAX_FILE_BYTES:

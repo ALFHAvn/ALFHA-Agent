@@ -36,7 +36,7 @@ def run_review(request, *, chat_fn=None):
               'starting_commit': None, 'ready_for_human_review': False,
               'source_application': False, 'candidate_execution': 'disabled',
               'functional_correctness': 'not_tested', 'workspace_discarded': True,
-              'report_path': str(output)}
+              'prompt_version': 'v2-exact-source-lines-1', 'report_path': str(output)}
     before, inspection = None, None
     def save():
         report['checkpoint_utc'] = timestamp(); atomic_write(output, report)
@@ -66,7 +66,7 @@ def run_review(request, *, chat_fn=None):
             report['workspace_discarded'] = True
             if _source_snapshot(source) != before:
                 raise SafetyError('Source changed during inspection; no generation authorized')
-            messages = proposal_messages(request, contents, allow_line_arrays=True)
+            messages = proposal_messages(request, contents, allow_line_arrays=True, include_source_lines=True)
             payload = {'model': MODEL, 'stream': False, 'format': schema, 'messages': messages,
                        'options': {'temperature': 0, 'num_ctx': 8192}}
             if len(json.dumps(payload, ensure_ascii=True).encode()) > MAX_RESPONSE_BYTES:

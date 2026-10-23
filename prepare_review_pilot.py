@@ -55,9 +55,10 @@ def prepare():
         'operation_budget': 6, 'request': request, 'starting_snapshot': before,
         'inspection_discarded': True,
         'fixture_hashes': {name: hashlib.sha256((source / name).read_bytes()).hexdigest() for name in FILES},
+        'prompt_version': 'v2-exact-source-lines-1',
         'payload': {'model': 'qwen3:4b', 'stream': False,
                     'format': proposal_schema(request, allow_line_arrays=True)['oneOf'][1],
-                    'messages': proposal_messages(request, contents, allow_line_arrays=True),
+                    'messages': proposal_messages(request, contents, allow_line_arrays=True, include_source_lines=True),
                     'options': {'temperature': 0, 'num_ctx': 8192}}}
     # Keep evidence outside the source so it cannot affect source state checks.
     output = Path(tempfile.mkdtemp(prefix='alfha-pilot-plan-')).resolve() / 'plan.json'
