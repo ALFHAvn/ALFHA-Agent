@@ -122,3 +122,46 @@ been reviewed; no application implementation is part of this pilot.
 - Ignored local evidence: `evaluations/runs/review_pilot_tests.log`,
   `review_pilot_test_readiness.json`, `everyday_review_pilot_preparation.json` (exact
   payload and source identity), and `everyday_review_pilot_closure.json`.
+
+## First approved live result
+
+At preparation commit `c52c5ab`, the owner approved exactly one model request.
+Resource, dependency and source-identity checks passed; the sent payload matched
+the frozen plan exactly. Qwen3 responded in **168.953 seconds** with valid version
+2 JSON proposing two authorized edits. No native calls or retries occurred.
+
+The module replacement target matched once. The test replacement target matched
+zero times: the original file has **two empty lines** between the import and
+`def test_zero`, while the model copied only **one empty line** into `old_lines`.
+The batch was rejected atomically, charging 2/6 operations and staging **zero edits**.
+The combined diff is empty. No unauthorized paths or operations were proposed.
+
+Decoded replacement text for both proposed files parses, but rejected text is
+not an applied candidate. Apparent escaped quotes in the JSON evidence are normal
+serialization, not literal quote escapes in the decoded proposal. An initial
+console interpretation was corrected after direct decoded inspection; no data
+was transformed or repaired.
+
+| Independent criterion on actual final staged files | Result |
+| --- | --- |
+| Both required Python files changed | Fail: neither changed |
+| Both Python files parse | Pass: unchanged originals |
+| Signature, import and original test preserved | Pass |
+| Requested formatter implementation present | Fail |
+| Six boundary assertions present | Fail |
+| Negative-input test present | Fail |
+| Read-only README and original source unchanged | Pass |
+| Task complete | **No** |
+| Functional correctness | **Not tested** |
+
+Authorization expired on completion. Original source/fixture hashes match and no
+`alfha-git-*` staging remains. Default live functional execution remains disabled.
+No generated Python/tests or Docker jobs ran. No regressions were rerun for this
+live-attempt/documentation-only update; the 42/42 preparation result remains the
+applicable deterministic evidence, not a new run.
+
+Complete local evidence: `evaluations/runs/everyday_review_pilot_result.json`,
+`everyday_review_pilot_assessment.json`, `everyday_review_pilot_consumed.json` and
+`everyday_review_pilot_live_closure.json`. The full response, exact decoded
+replacement arrays, rejected batch, unchanged final snapshots/hashes and empty
+diff are retained. No new live attempt is authorized.

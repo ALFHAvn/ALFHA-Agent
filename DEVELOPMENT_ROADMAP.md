@@ -43,8 +43,15 @@ does not establish functional correctness, and source application stays unavaila
    Offline report reopening is now implemented without generation or restored
    authority. The first-party time-report pilot is prepared in `REVIEW_PILOT.md`,
    with two mutable Python files, read-only context and an independent checklist.
-   Live generation remains pending separate approval. Use deterministic tests
-   before considering another live sample.
+   Its first separately approved live request completed, but the model omitted one
+   empty line in the test replacement target. Strict atomic validation rejected
+   both edits: zero changed files, 2/6 operations charged. Sources and read-only
+   context stayed unchanged; authorization expired. Details: `REVIEW_PILOT.md`.
+   Next safe improvement: clearer empty-line/context presentation and mismatch
+   diagnostics, tested offline against this saved response. Preserve exact-match
+   semantics; never collapse whitespace, repair proposals, or retry automatically.
+   No further live generation is authorized. Use deterministic tests before
+   considering another live sample.
 3. Prepare a human-approval design for applying reviewed changes. Keep the current
    implementation review-only until that design receives separate review.
 4. Introduce controlled functional verification only for supported tasks with
