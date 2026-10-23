@@ -155,3 +155,100 @@ Local ignored evidence: `runs/step44_targeted_tests.log`,
 `runs/step44_preparation_closure.json`. These are preparation results, not a
 coding benchmark outcome or permission to consume attempts. Separate explicit
 approval of the fixed six requests is still required.
+
+## Approved Step 44 live retest — 2026-10-23
+
+Exactly six fresh generation requests completed in the approved order at commit
+5672f8f, without retries, corrective requests, proposal repairs or unattempted
+cases. Every payload matched the fixed plan. Relative to its paired Step 42
+payload, only the system message changed; original user strings/options/seeds,
+JSON schemas, fixtures, per-file permissions and acceptance criteria were retained.
+Model identity matched the retained baseline. Bounded read-only Docker readiness,
+pinned Linux image metadata and each definitive mandatory inventory passed.
+No behavioral probes, candidate containers, generated Python or tests ran.
+
+| Task | Round 1 | Round 2 | Round 3 | New complete static | Paired Step 42 |
+| --- | --- | --- | --- | --- | --- |
+| bounds | Rejected; 149.985 s | Rejected; 173.875 s | Rejected; 173.657 s | 0/3 | 0/3 |
+| stable_unique | Pass; 161.859 s | Pass; 164.328 s | Pass; 163.875 s | 3/3 | 0/3 |
+
+**Complete static task success: 3/6 (50%), versus paired baseline 0/6.**
+All three deduplication proposals were valid, staged both required files and
+passed implementation static checks and the full generated-test AST contract,
+including `assert result is not values`. All three clamping proposals again
+contained literal backslash+n old_text with zero exact matches. Whole-batch
+validation staged neither file. Their final implementation/test checks failed
+because required changes were absent; missing test diagnostics are a consequence
+of edit rejection, not proof that the unapplied proposed tests were defective.
+
+Across six attempts: three contextually valid proposals, three rejected proposals,
+six staged edits, six rejected declared operations and twelve charged operations
+(two per attempt, within six-operation budget). No unauthorized paths/operations,
+malformed JSON, native calls, recovery calls, transport errors, safety/integrity
+failures or cleanup failures were observed. Response durations averaged 164.597 s
+versus 100.125 s in the six paired historical attempts. This is an observed latency
+difference, not a demonstrated prompt-caused effect or peak resource measurement.
+Full response envelopes and returned Ollama duration/token metadata are retained.
+
+## Exact repeats and candidate provenance
+
+New raw response content had three distinct strings. The deduplication contents
+were identical in all three rounds (SHA-256
+`476235a5e75322d4684f792ad1c84b128a0d5bb298d245b1d23ed79bc7b54c08`).
+Clamping rounds 2 and 3 matched exactly (SHA-256
+`84791703bd525c74a33303050b36e0b5ed9b38354efb6ce1f5d63928dd28c4e8`);
+round 1 differed. No new content exactly matched any of the six historical
+baseline contents. Comparisons concern response content, not changing transport
+timestamps/duration metadata. Recurring failure diagnostics were preserved once
+per attempt, separately from exact-content duplication. Different seeds do not
+make these repeated outputs independent evidence.
+
+Actual final staging snapshots and full per-file hashes are retained for every
+attempt. Deduplication implementation bytes match the corresponding historical
+Step 42 implementation (`c7fec2319dc636218ddca64a330630cd9879d71700c252cf95b5813da7a00271`),
+but the generated tests changed to comply with the identity contract (new test
+hash `1f9c1e19769fcf1264f18cd3392f27383d99909631b1a1458e6fd8f246502c9b`).
+No historical functional result is credited as a new execution: all Step 44
+functional statuses remain not_run. The three unchanged clamp snapshots are
+preserved as rejected/no-edit outcomes, never reconstructed from proposals.
+
+Full evidence: ignored `runs/step44_live_results.json`, per-attempt response and
+candidate JSON snapshots, and `runs/step44_paired_comparison.json`. Historical
+reports remain separate and unchanged. The parent live record proves actual
+invocations; nested assess_attempt reports correctly label their own operation
+as supplied-data validation, not another model call.
+
+## Recommendation from actual outcomes
+
+**Defer interactive everyday-workflow integration.** Retain the isolated,
+review-only experimental workflow and address recurring multiline representation
+failures before reconsidering a pilot. The observed test-contract improvement
+is useful, but clamping still completed 0/3 with zero edits and half of this small
+trial failed. Accepted implementation hashes repeat historical code; no new
+functional correctness or general reliability is established. The payload
+intervention was controlled as planned, but this small correlated trial does not
+prove causal attribution to Step 43 instructions.
+
+No interactive integration, automatic source application, default-model change
+or execution permission was implemented. Future generation or functional jobs
+require a new reviewed scope and separate explicit approval.
+
+Paired metric comparison (Step 42 focused baseline -> Step 44): contextually
+valid proposals **3/6 -> 3/6**; actual staged edits **6 -> 6**; rejected literal-
+newline batches **3 -> 3**; incorrect identity assertions in staged dedup tests
+**3 -> 0**; complete static tasks **0/6 -> 3/6**. Thus the measured gain is in
+required test-contract fidelity; edit acceptance did not increase in this trial.
+
+## Final verification
+
+The full post-attempt regression suite passed **452/452** tests in 491.488 s.
+These trusted regression tests made zero live model calls and performed no
+Docker candidate execution. Final closure independently confirmed expired
+generation authorization, default live execution disabled, unchanged plan and
+validator hashes, unchanged historical evidence, source repositories and
+fixtures, and verified all six retained candidate snapshot sets. No ALFHA staging
+workspaces remained. Bounded read-only Docker readiness and the separate
+mandatory container inventory succeeded; the final inventory contained zero
+containers. There were zero candidate execution jobs. Complete closure evidence
+is retained in ignored `runs/step44_live_closure.json`, with regression evidence
+in `runs/step44_post_live_regression_evidence.json` and its full log.
