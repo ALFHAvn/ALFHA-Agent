@@ -110,7 +110,7 @@ def failed(exc):
             'evidence': getattr(exc, 'evidence', None)}
 
 
-def check_dependencies(models=('qwen3:4b',), *, metadata=ollama_metadata, docker_factory=None):
+def check_dependencies(models=('qwen3:4b',), *, metadata=ollama_metadata, docker_factory=None, require_docker=True):
     """Data only; readiness is not authorization or isolation verification.
 
     Each HTTP request shares a 3-second connect/header/body deadline. Each Docker command has
@@ -121,6 +121,8 @@ def check_dependencies(models=('qwen3:4b',), *, metadata=ollama_metadata, docker
             any(not isinstance(m, str) or not re.fullmatch(r'[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+', m)
                 for m in models) or len(set(models)) != len(models)):
         raise ValueError('Require one to three unique explicit local model tags')
+    if type(require_docker) is not bool:
+        raise ValueError('require_docker must be Boolean')
     report = {'schema_version': 1, 'started_utc': timestamp(), 'ready': False,
               'failure_domain': 'infrastructure', 'read_only': True, 'model_invoked': False,
               'required_models': list(models), 'required_image': PINNED_IMAGE,
@@ -158,6 +160,16 @@ def check_dependencies(models=('qwen3:4b',), *, metadata=ollama_metadata, docker
                 checks['ollama_models'][model] = failed(exc)
     except Exception as exc:
         checks['ollama_api'] = failed(exc)
+    if not require_docker:
+        checks['docker_engine'] = checks['docker_image'] = {'status': 'not_required',
+            'message': 'Static review only; Docker was not contacted and execution is unauthorized'}
+        report['required_image'] = None
+        report['docker_metadata_audit'] = []
+        report['ready'] = (checks['ollama_api']['status'] == 'passed' and
+                           all(c['status'] == 'passed' for c in checks['ollama_models'].values()))
+        report['failure_domain'] = None if report['ready'] else 'infrastructure'
+        report['completed_utc'] = timestamp()
+        return report
     transport = None
     checks['docker_image'] = {'status': 'not_checked', 'message': 'Docker engine not ready'}
     try:

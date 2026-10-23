@@ -268,6 +268,20 @@ class DockerTransport:
         return {'status': 'unverified', 'verified_absent': False, 'evidence': evidence}
 
     def run_controlled(self, program):
+        # Test doubles perform no Docker work. Real execution shares the same
+        # exclusion boundary as review generation and the gated regression CLI.
+        if self.runner is bounded_command:
+            from resource_readiness import workload_guard
+            from git_checkpoints import SafetyError
+            try:
+                with workload_guard('docker'):
+                    return self._run_controlled(program)
+            except (SafetyError, OSError) as exc:
+                raise IsolationError('Workload exclusion unavailable: ' + str(exc),
+                                     category='workload_unavailable') from exc
+        return self._run_controlled(program)
+
+    def _run_controlled(self, program):
         if not isinstance(program, str) or len(program.encode('utf-8')) > 100_000:
             raise IsolationError('Controlled program exceeds input limit')
         identity = self.preflight()

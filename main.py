@@ -872,5 +872,16 @@ def main():
 
 
 
+def cli(argv=None):
+    args = sys.argv[1:] if argv is None else argv
+    if args == ["--review"]:
+        from interactive_review import main as review_main
+        return review_main()
+    if args:
+        print('Usage: python main.py [--review]', file=sys.stderr)
+        return 2
+    return main()
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(cli())

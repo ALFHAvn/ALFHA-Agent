@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "status": "requires_separate_explicit_approval",
+  "model": "qwen3:4b",
+  "maximum_generation_requests": 1,
+  "retries": 0,
+  "corrective_requests": 0,
+  "candidate_execution_authorized": false,
+  "generation_authorized": false,
+  "source_application": false,
+  "entrypoint": ".venv\\Scripts\\python.exe -B main.py --review",
+  "source_scope": "One fresh disposable Git repository initialized with the exact original clamp fixtures; never a user project",
+  "description": "Fix clamp for integer inputs with lower <= upper: below returns lower, above returns upper, inclusive interior returns value. Preserve signature. In test_clamp.py retain the import and test_inside unchanged; append test_edges with exactly these assertions in order: clamp(-1,0,10)==0; clamp(11,0,10)==10; clamp(0,0,10)==0; clamp(10,0,10)==10; clamp(7,3,3)==3. No other test code. Change both files.",
+  "initial_files": {
+    "clamp.py": "def clamp(value, lower, upper):\n    return value\n",
+    "test_clamp.py": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n"
+  },
+  "authorized_files": {
+    "clamp.py": [
+      "read",
+      "modify"
+    ],
+    "test_clamp.py": [
+      "read",
+      "modify"
+    ]
+  },
+  "required_changed_files": [
+    "clamp.py",
+    "test_clamp.py"
+  ],
+  "validation_requirements": {
+    "static": true,
+    "docker_execution": false
+  },
+  "protocol": "version=2 replace_lines only",
+  "operation_budget": 6,
+  "options": {
+    "temperature": 0,
+    "num_ctx": 8192
+  },
+  "transport_timeout_seconds": 180,
+  "preflight": "Shared workload lock; three fresh memory/process samples before inspection and generation; Ollama API/model metadata; source integrity",
+  "resource_minimums_GiB": {
+    "generation_available_ram": 4,
+    "generation_commit_headroom": 10,
+    "post_response_available_ram": 2,
+    "post_response_commit_headroom": 4
+  },
+  "static_acceptance": {
+    "all_required_files_changed": true,
+    "signature_preserved": true,
+    "expected_test_source": "from clamp import clamp\n\ndef test_inside():\n    assert clamp(5, 0, 10) == 5\n\ndef test_edges():\n    assert clamp(-1, 0, 10) == 0\n    assert clamp(11, 0, 10) == 10\n    assert clamp(0, 0, 10) == 0\n    assert clamp(10, 0, 10) == 10\n    assert clamp(7, 3, 3) == 3\n",
+    "functional_correctness": "not_measured"
+  },
+  "stop_conditions": [
+    "Insufficient or unavailable readiness evidence",
+    "Source/link/authorization failure",
+    "Model or transport error",
+    "Unverified cleanup"
+  ],
+  "preserve": [
+    "Exact request and response",
+    "Resource and dependency evidence",
+    "Accepted and rejected operations",
+    "Final diff, snapshots and hashes",
+    "Static validation and incomplete work",
+    "Source integrity and cleanup"
+  ],
+  "limitations": "A single static smoke test cannot establish functional correctness or sustained resource stability"
+}
