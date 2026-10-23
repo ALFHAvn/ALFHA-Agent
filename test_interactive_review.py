@@ -51,6 +51,16 @@ class ResourceTests(unittest.TestCase):
                       dict(self.sample(), other_python_processes=None)):
             self.assertFalse(self.check(value)['ready'])
 
+    def test_resource_error_reports_observed_values_and_unchanged_thresholds(self):
+        sample = dict(self.sample(), physical_available=3*resources.GIB,
+                      commit_used=17*resources.GIB)
+        report = self.check(sample)
+        self.assertFalse(report['ready'])
+        self.assertIn('available RAM 3.00 GiB (require 4 GiB)', report['errors'][0])
+        self.assertIn('commit headroom 9.00 GiB (require 10 GiB)', report['errors'][0])
+        self.assertEqual(report['minimum_available_ram'], 4*resources.GIB)
+        self.assertEqual(report['minimum_commit_headroom'], 10*resources.GIB)
+
     def test_unavailable_snapshot(self):
         with patch.object(resources,'memory_snapshot',side_effect=OSError('No evidence')):
             self.assertFalse(resources.check_readiness()['ready'])

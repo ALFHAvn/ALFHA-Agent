@@ -147,3 +147,24 @@ existing clean tracked files only, static validation only, no live measurement o
 this interactive adapter, and no source-application feature. CLI transport timeout
 is the SDK timeout, not proof of a strict whole-request wall deadline. The Step 46
 resource incident is not claimed permanently fixed.
+
+## Authorized smoke preflight and follow-up
+
+The autonomous-development mandate authorized the prepared one-response smoke
+scope. Its 2026-10-23 invocation aborted **before generation**: available RAM was
+3.73 GiB and commit headroom 9.94 GiB, below the unchanged 4/10 GiB thresholds.
+Zero model requests, edits, candidate executions or Docker jobs occurred. No
+staging workspace was created; the fresh disposable source remained unchanged.
+The source fixture and reports were retained. Authorization expired on abort;
+the invocation was not retried. This leaves interactive coding usefulness untested.
+
+Local evidence is `evaluations/runs/step47a_smoke_result.json`, with an exclusive
+`step47a_smoke_consumed.json` invocation claim. A fresh smoke attempt requires new
+explicit approval; a later passing resource snapshot does not resume this run.
+
+Readiness errors now include observed RAM and commit headroom alongside required
+values. **10/10 resource regression tests passed** under the regression readiness
+gate and workload lock, including the new numeric-diagnostic test. No new full
+suite run is claimed for this diagnostic-only follow-up. Historical full/focused
+results above remain separate evidence. See `DEVELOPMENT_ROADMAP.md` for priorities
+and the proposed, unimplemented source-application approval design.

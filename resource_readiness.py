@@ -117,8 +117,10 @@ def check_readiness(kind='generation', *, sampler=None, pause=time.sleep):
             if sample['other_python_processes']:
                 raise ValueError('Another Python/ALFHA job is active; finish it before starting this workload')
             if sample['physical_available'] < ram or sample['commit_headroom'] < commit:
-                raise ValueError(f'Insufficient memory: require {ram // GIB} GiB available RAM and '
-                                 f'{commit // GIB} GiB commit headroom. Wait for idle workloads or save '
+                raise ValueError(f'Insufficient memory: available RAM {sample["physical_available"] / GIB:.2f} GiB '
+                                 f'(require {ram // GIB} GiB); commit headroom '
+                                 f'{sample["commit_headroom"] / GIB:.2f} GiB '
+                                 f'(require {commit // GIB} GiB). Wait for idle workloads or save '
                                  'and close optional applications; no settings or processes were changed')
         except (OSError, ValueError, TypeError, KeyError) as exc:
             report['errors'].append(str(exc)); return report
