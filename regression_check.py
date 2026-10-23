@@ -12,7 +12,7 @@ MODULES = ('test_agent test_evaluation_controller test_benchmark_reporting '
     'test_docker_readiness test_candidate_validation_preparation test_probe_stop '
     'test_string_policy test_normalize_scope test_structured_reliability '
     'test_structured_contracts test_focused_retest test_multiline_protocol '
-    'test_interactive_review').split()
+    'test_interactive_review test_review_pilot').split()
 
 
 def main():

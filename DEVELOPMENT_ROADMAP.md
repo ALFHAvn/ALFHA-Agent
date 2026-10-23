@@ -40,7 +40,11 @@ does not establish functional correctness, and source application stays unavaila
    contract and diff inspection. No further live request is authorized.
 2. Improve review usability from that evidence: show incomplete requirements,
    retain readable reports and distinguish proposal validity from task completion.
-   Use deterministic tests before considering another live sample.
+   Offline report reopening is now implemented without generation or restored
+   authority. The first-party time-report pilot is prepared in `REVIEW_PILOT.md`,
+   with two mutable Python files, read-only context and an independent checklist.
+   Live generation remains pending separate approval. Use deterministic tests
+   before considering another live sample.
 3. Prepare a human-approval design for applying reviewed changes. Keep the current
    implementation review-only until that design receives separate review.
 4. Introduce controlled functional verification only for supported tasks with

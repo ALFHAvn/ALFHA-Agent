@@ -189,3 +189,9 @@ smoke/documentation-only update; existing test evidence above remains distinct.
 
 Recommendation: limited review-only pilot with explicit files and human inspection;
 one successful response does not establish general or repeatable coding reliability.
+
+Saved review reports can now be reopened offline with
+`python -B -m review_report "C:\exact\report.json"`. The bounded viewer escapes
+untrusted text and labels results as retained, unverified claims. It does not
+contact Ollama, recreate staging, follow embedded paths or restore authorization.
+See `REVIEW_PILOT.md` for the prepared non-critical time-report maintenance pilot.
